@@ -1,0 +1,95 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --font-heading: 'Cinzel', 'Playfair Display', serif;
+    --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+
+    --color-admin-maroon: #5C0F17;
+    --color-admin-maroon-dark: #28080C;
+    --color-admin-saffron: #E85D04;
+    --color-admin-gold: #DA9B26;
+    --color-admin-bg: #F8F5F0;
+    --color-admin-card: #FFFFFF;
+    --color-admin-ink: #2D1C13;
+    --color-admin-border: #E8DDCE;
+  }
+
+  body {
+    margin: 0;
+    min-width: 320px;
+    min-height: 100vh;
+    background-color: var(--color-admin-bg);
+    color: var(--color-admin-ink);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  .font-devotional {
+    font-family: var(--font-heading);
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+button {
+  cursor: pointer;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* Global Button Contrast: Any dark, maroon or brown background button/link must have readable white text & icons */
+button[class*="bg-[#5C0F17]"],
+button[class*="bg-[#4A0D15]"],
+button[class*="bg-[#3D0A10]"],
+button[class*="bg-[#43080E]"],
+button[class*="bg-[#3E060D]"],
+button[class*="bg-[#2A0409]"],
+button[class*="bg-[#2D0A10]"],
+button[class*="bg-[#25080D]"],
+a[class*="bg-[#5C0F17]"],
+a[class*="bg-[#4A0D15]"],
+a[class*="bg-[#3D0A10]"],
+a[class*="bg-[#43080E]"],
+a[class*="bg-[#3E060D]"],
+a[class*="bg-[#2A0409]"],
+a[class*="bg-[#2D0A10]"],
+a[class*="bg-[#25080D]"] {
+  color: #FFFFFF !important;
+}
+
+button[class*="bg-[#5C0F17]"] span,
+button[class*="bg-[#4A0D15]"] span,
+button[class*="bg-[#3D0A10]"] span,
+a[class*="bg-[#5C0F17]"] span,
+a[class*="bg-[#4A0D15]"] span,
+a[class*="bg-[#3D0A10]"] span {
+  color: #FFFFFF !important;
+}
+
+button[class*="bg-[#5C0F17]"] svg:not([class*="text-"]),
+button[class*="bg-[#4A0D15]"] svg:not([class*="text-"]),
+a[class*="bg-[#5C0F17]"] svg:not([class*="text-"]),
+a[class*="bg-[#4A0D15]"] svg:not([class*="text-"]) {
+  stroke: #FFFFFF !important;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid #DA9B26;
+  outline-offset: 2px;
+}
+
+::selection {
+  background: #DA9B2635;
+  color: #28080C;
+}

@@ -54,6 +54,7 @@ export const api = {
       handleAuthError(res);
       const err = new Error(data.message || `Request failed with status ${res.status}`);
       err.errors = data.errors;
+      err.devOtp = data.devOtp;
       throw err;
     }
     return data;
@@ -70,6 +71,7 @@ export const api = {
       handleAuthError(res);
       const err = new Error(data.message || `Request failed with status ${res.status}`);
       err.errors = data.errors;
+      err.devOtp = data.devOtp;
       throw err;
     }
     return data;
@@ -86,6 +88,7 @@ export const api = {
       handleAuthError(res);
       const err = new Error(data.message || `Request failed with status ${res.status}`);
       err.errors = data.errors;
+      err.devOtp = data.devOtp;
       throw err;
     }
     return data;

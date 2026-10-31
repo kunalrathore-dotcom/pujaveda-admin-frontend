@@ -44,4 +44,21 @@ export const adminAuthService = {
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(SESSION_KEY);
   },
+
+  async forgotPassword(email) {
+    return await api.post("/auth/admin-forgot-password", { email });
+  },
+
+  async verifyResetOtp(email, otp) {
+    return await api.post("/auth/admin-verify-reset-otp", { email, otp });
+  },
+
+  async resetPassword({ email, resetToken, password, confirmPassword }) {
+    return await api.post("/auth/admin-reset-password", {
+      email,
+      resetToken,
+      password,
+      confirmPassword,
+    });
+  },
 };

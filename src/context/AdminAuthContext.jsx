@@ -47,7 +47,11 @@ export function AdminAuthProvider({ children }) {
     };
   }, []);
 
-  const login = async (credentials) => {
+  const login = async (emailOrCredentials, maybePassword) => {
+    const credentials =
+      typeof emailOrCredentials === "string"
+        ? { email: emailOrCredentials, password: maybePassword }
+      : emailOrCredentials;
     setLoading(true);
     try {
       const loggedInAdmin = await adminAuthService.login(credentials);

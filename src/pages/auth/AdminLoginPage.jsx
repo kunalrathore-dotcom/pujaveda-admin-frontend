@@ -39,7 +39,7 @@ export default function AdminLoginPage() {
     if (!validate()) return;
 
     try {
-      await login(email.trim(), password);
+      await login({ email: email.trim(), password });
 
       const redirectPath = location.state?.from?.pathname || "/";
       navigate(redirectPath, { replace: true });

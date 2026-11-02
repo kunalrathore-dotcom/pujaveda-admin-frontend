@@ -13,8 +13,10 @@ import SubcategoriesPage from "./pages/SubcategoriesPage";
 import BannerPage from "./pages/BannerPage";
 import PromotionalSectionsPage from "./pages/PromotionalSectionsPage";
 import OrdersPage from "./pages/OrdersPage";
+import OrderDetailPage from "./pages/OrderDetailPage";
 import EarningsPage from "./pages/EarningsPage";
 import CustomersPage from "./pages/CustomersPage";
+import CustomerDetailPage from "./pages/CustomerDetailPage";
 import CouponsPage from "./pages/CouponsPage";
 import TaxSettingsPage from "./pages/TaxSettingsPage";
 import AuditLogsPage from "./pages/AuditLogsPage";
@@ -43,9 +45,10 @@ export default function App() {
             {/* Backward compatibility redirect for old promotions link */}
             <Route path="promotions" element={<Navigate to="/promotional-sections" replace />} />
             <Route path="orders" element={<OrdersPage />} />
-            <Route path="orders/:id" element={<OrdersPage />} />
+            <Route path="orders/:id" element={<OrderDetailPage />} />
             <Route path="earnings" element={<EarningsPage />} />
             <Route path="customers" element={<CustomersPage />} />
+            <Route path="customers/:id" element={<CustomerDetailPage />} />
             <Route path="coupons" element={<CouponsPage />} />
             <Route path="taxes" element={<TaxSettingsPage />} />
             <Route path="audit-logs" element={<AuditLogsPage />} />

@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo } from "react";
+import { Link } from "react-router-dom";
 import {
   IndianRupee,
   ShoppingBag,
@@ -529,6 +530,7 @@ export default function EarningsPage() {
                 <tr>
                   <th className="px-4 py-3.5 font-bold whitespace-nowrap">Order #</th>
                   <th className="px-4 py-3.5 font-bold whitespace-nowrap">Customer</th>
+                  <th className="px-4 py-3.5 font-bold whitespace-nowrap">Transaction ID</th>
                   <th className="px-4 py-3.5 font-bold whitespace-nowrap">Date</th>
                   <th className="px-4 py-3.5 font-bold whitespace-nowrap text-right bg-blue-50/40 text-blue-900">Product Value</th>
                   <th className="px-4 py-3.5 font-bold whitespace-nowrap text-right bg-emerald-50/50 text-emerald-900">Customer Paid</th>
@@ -546,12 +548,41 @@ export default function EarningsPage() {
               <tbody className="divide-y divide-neutral-100 font-medium">
                 {orders.map((o) => (
                   <tr key={o._id} className="hover:bg-neutral-50/80 transition">
-                    <td className="px-4 py-3 font-mono font-bold text-neutral-900 whitespace-nowrap">
-                      {o.orderNumber}
+                    <td className="px-4 py-3 font-mono font-bold whitespace-nowrap">
+                      <Link
+                        to={`/orders/${o._id || o.orderNumber}`}
+                        className="text-[#5C0F17] hover:underline"
+                        title="View Order Details"
+                      >
+                        {o.orderNumber}
+                      </Link>
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap">
-                      <div className="font-bold text-neutral-800">{o.customerName}</div>
+                      {o.userId ? (
+                        <Link
+                          to={`/customers/${o.userId}`}
+                          className="font-bold text-neutral-900 hover:text-[#5C0F17] hover:underline block"
+                          title="View Customer Profile"
+                        >
+                          {o.customerName}
+                        </Link>
+                      ) : (
+                        <div className="font-bold text-neutral-800">{o.customerName}</div>
+                      )}
                       <div className="text-[10px] text-neutral-400">{o.customerEmail || o.customerPhone || "N/A"}</div>
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap font-mono text-[11px]">
+                      {o.transactionId ? (
+                        <Link
+                          to={`/orders/${o._id || o.orderNumber}`}
+                          className="font-semibold text-[#5C0F17] hover:underline bg-[#5C0F17]/5 px-2 py-0.5 rounded-md border border-[#5C0F17]/10"
+                          title="View Order Payment Details"
+                        >
+                          {o.transactionId}
+                        </Link>
+                      ) : (
+                        <span className="text-neutral-400">—</span>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-neutral-500 whitespace-nowrap text-[11px]">
                       {o.orderDate

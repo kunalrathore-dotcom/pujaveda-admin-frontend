@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
-import { Search, Mail, Phone, Users } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { Search, Mail, Phone, Users, ExternalLink, ChevronRight } from "lucide-react";
 import { api } from "../services/api";
 
 export default function CustomersPage() {
+  const navigate = useNavigate();
   const [customers, setCustomers] = useState([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
@@ -80,19 +82,30 @@ export default function CustomersPage() {
                   <th className="px-5 py-4 font-bold">Orders Placed</th>
                   <th className="px-5 py-4 font-bold">Total Spent</th>
                   <th className="px-5 py-4 font-bold">Joined Date</th>
+                  <th className="px-5 py-4 font-bold text-right">Action</th>
                 </tr>
               </thead>
 
               <tbody className="divide-y divide-neutral-100">
                 {customers.map((cust) => (
-                  <tr key={cust._id} className="hover:bg-neutral-50">
+                  <tr
+                    key={cust._id}
+                    onClick={() => navigate(`/customers/${cust._id}`)}
+                    className="hover:bg-neutral-50/80 cursor-pointer transition"
+                  >
                     <td className="px-5 py-4">
                       <div className="flex items-center gap-3">
                         <div className="flex h-9 w-9 items-center justify-center rounded-full bg-rose-50 text-xs font-bold text-[#5C0F17]">
                           {cust.name?.charAt(0) || "U"}
                         </div>
                         <div>
-                          <p className="font-bold text-neutral-900">{cust.name}</p>
+                          <Link
+                            to={`/customers/${cust._id}`}
+                            onClick={(e) => e.stopPropagation()}
+                            className="font-bold text-neutral-900 hover:text-[#5C0F17] hover:underline"
+                          >
+                            {cust.name}
+                          </Link>
                           <p className="text-xs text-neutral-400 font-mono">{cust._id.slice(-6)}</p>
                         </div>
                       </div>
@@ -111,6 +124,14 @@ export default function CustomersPage() {
                     </td>
                     <td className="px-5 py-4 text-xs text-neutral-500">
                       {new Date(cust.joined).toLocaleDateString()}
+                    </td>
+                    <td className="px-5 py-4 text-right" onClick={(e) => e.stopPropagation()}>
+                      <Link
+                        to={`/customers/${cust._id}`}
+                        className="inline-flex items-center gap-1 rounded-xl border border-neutral-200/80 bg-white px-3 py-1.5 text-xs font-bold text-[#5C0F17] hover:bg-[#5C0F17]/5 shadow-xs transition"
+                      >
+                        View Profile <ChevronRight size={13} />
+                      </Link>
                     </td>
                   </tr>
                 ))}

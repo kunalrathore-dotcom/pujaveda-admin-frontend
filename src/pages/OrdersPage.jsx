@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import {
   Search,
   CheckCircle2,
@@ -159,8 +159,7 @@ export default function OrdersPage() {
   }, [routeOrderId, orders, fetchAndOpenOrder]);
 
   const handleOpenOrder = (order) => {
-    setSelectedOrder(order);
-    fetchAndOpenOrder(order._id || order.orderNumber, order);
+    navigate(`/orders/${order._id || order.orderNumber}`);
   };
 
   const handleCloseOrder = () => {
@@ -372,73 +371,91 @@ export default function OrdersPage() {
               </thead>
 
               <tbody className="divide-y divide-neutral-100">
-                {orders.map((order) => (
-                  <tr
-                    key={order._id}
-                    onClick={() => handleOpenOrder(order)}
-                    className="hover:bg-neutral-50/80 transition cursor-pointer group"
-                    title="Click row to view complete order details"
-                  >
-                    <td className="px-5 py-4 font-mono font-bold text-neutral-900 group-hover:text-[#5C0F17]">
-                      {order.orderNumber}
-                    </td>
-                    <td className="px-5 py-4">
-                      <p className="font-semibold text-neutral-800">{order.customerDetails?.name || "Customer"}</p>
-                      <p className="text-[11px] text-neutral-400">{order.customerDetails?.email || "N/A"}</p>
-                    </td>
-                    <td className="px-5 py-4 text-neutral-600 font-medium">
-                      {order.items?.length || 0} product(s)
-                    </td>
-                    <td className="px-5 py-4 font-black text-neutral-900">
-                      ₹{Number(order.totalAmount || 0).toLocaleString("en-IN")}
-                    </td>
-                    <td className="px-5 py-4 text-neutral-500 whitespace-nowrap">
-                      {order.createdAt
-                        ? new Date(order.createdAt).toLocaleDateString("en-IN", {
-                            day: "numeric",
-                            month: "short",
-                            year: "numeric",
-                          })
-                        : "N/A"}
-                    </td>
-                    <td className="px-5 py-4">
-                      <div className="flex items-center gap-1.5">
-                        <span className="font-semibold uppercase text-neutral-700">{order.paymentMethod || "cod"}</span>
-                        <span
-                          className={`rounded-full border px-2 py-0.5 text-[10px] font-bold ${getPaymentStatusBadge(
-                            order.paymentStatus
+                {orders.map((order) => {
+                  const customerUserId = order.user?._id || (typeof order.user === "string" ? order.user : null);
+                  return (
+                    <tr
+                      key={order._id}
+                      onClick={() => handleOpenOrder(order)}
+                      className="hover:bg-neutral-50/80 transition cursor-pointer group"
+                      title="Click row to view complete order details"
+                    >
+                      <td className="px-5 py-4 font-mono font-bold text-[#5C0F17] group-hover:underline">
+                        <Link
+                          to={`/orders/${order._id || order.orderNumber}`}
+                          onClick={(e) => e.stopPropagation()}
+                          className="hover:underline"
+                        >
+                          {order.orderNumber}
+                        </Link>
+                      </td>
+                      <td className="px-5 py-4">
+                        {customerUserId ? (
+                          <Link
+                            to={`/customers/${customerUserId}`}
+                            onClick={(e) => e.stopPropagation()}
+                            className="font-bold text-neutral-800 hover:text-[#5C0F17] hover:underline"
+                          >
+                            {order.customerDetails?.name || "Customer"}
+                          </Link>
+                        ) : (
+                          <p className="font-semibold text-neutral-800">{order.customerDetails?.name || "Customer"}</p>
+                        )}
+                        <p className="text-[11px] text-neutral-400">{order.customerDetails?.email || "N/A"}</p>
+                      </td>
+                      <td className="px-5 py-4 text-neutral-600 font-medium">
+                        {order.items?.length || 0} product(s)
+                      </td>
+                      <td className="px-5 py-4 font-black text-neutral-900">
+                        ₹{Number(order.totalAmount || 0).toLocaleString("en-IN")}
+                      </td>
+                      <td className="px-5 py-4 text-neutral-500 whitespace-nowrap">
+                        {order.createdAt
+                          ? new Date(order.createdAt).toLocaleDateString("en-IN", {
+                              day: "numeric",
+                              month: "short",
+                              year: "numeric",
+                            })
+                          : "N/A"}
+                      </td>
+                      <td className="px-5 py-4">
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-semibold uppercase text-neutral-700">{order.paymentMethod || "cod"}</span>
+                          <span
+                            className={`rounded-full border px-2 py-0.5 text-[10px] font-bold ${getPaymentStatusBadge(
+                              order.paymentStatus
+                            )}`}
+                          >
+                            {order.paymentStatus || "pending"}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-5 py-4" onClick={(e) => e.stopPropagation()}>
+                        <select
+                          disabled={updatingId === order._id}
+                          value={order.orderStatus || "Pending"}
+                          onChange={(e) => handleStatusChange(order._id, e.target.value)}
+                          className={`rounded-xl border px-2.5 py-1 text-xs font-bold outline-none transition ${getStatusBadge(
+                            order.orderStatus
                           )}`}
                         >
-                          {order.paymentStatus || "pending"}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-5 py-4" onClick={(e) => e.stopPropagation()}>
-                      <select
-                        disabled={updatingId === order._id}
-                        value={order.orderStatus || "Pending"}
-                        onChange={(e) => handleStatusChange(order._id, e.target.value)}
-                        className={`rounded-xl border px-2.5 py-1 text-xs font-bold outline-none transition ${getStatusBadge(
-                          order.orderStatus
-                        )}`}
-                      >
-                        <option value="Pending">Pending</option>
-                        <option value="Processing">Processing</option>
-                        <option value="Delivered">Delivered</option>
-                        <option value="Cancelled">Cancelled</option>
-                      </select>
-                    </td>
-                    <td className="px-5 py-4 text-right" onClick={(e) => e.stopPropagation()}>
-                      <button
-                        type="button"
-                        onClick={() => handleOpenOrder(order)}
-                        className="inline-flex items-center gap-1 rounded-xl bg-neutral-100 px-3 py-1.5 text-xs font-bold text-neutral-700 hover:bg-[#5C0F17] hover:text-white transition"
-                      >
-                        <Eye size={13} /> View
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                          <option value="Pending">Pending</option>
+                          <option value="Processing">Processing</option>
+                          <option value="Delivered">Delivered</option>
+                          <option value="Cancelled">Cancelled</option>
+                        </select>
+                      </td>
+                      <td className="px-5 py-4 text-right" onClick={(e) => e.stopPropagation()}>
+                        <Link
+                          to={`/orders/${order._id || order.orderNumber}`}
+                          className="inline-flex items-center gap-1 rounded-xl bg-neutral-100 px-3 py-1.5 text-xs font-bold text-neutral-700 hover:bg-[#5C0F17] hover:text-white transition"
+                        >
+                          <Eye size={13} /> View
+                        </Link>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

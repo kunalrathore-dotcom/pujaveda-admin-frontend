@@ -50,6 +50,7 @@ export default function CategoriesPage() {
   const [notice, setNotice] = useState("");
   const [actionMenu, setActionMenu] = useState(null);
   const [viewTab, setViewTab] = useState("active"); // "active" | "trash"
+  const [selectedIds, setSelectedIds] = useState([]);
 
   const load = async (tab = viewTab) => {
     try {
@@ -309,6 +310,45 @@ export default function CategoriesPage() {
     }
   };
 
+
+  const handleBulkTrash = async (idsToTrash) => {
+    if (!idsToTrash || idsToTrash.length === 0) return;
+    if (!window.confirm(`Move ${idsToTrash.length} category(ies) to trash? (You can restore them anytime from the Trash tab)`)) return;
+
+    try {
+      setLoading(true);
+      await categoryService.bulkTrash(idsToTrash);
+      setNotice(`${idsToTrash.length} category(ies) moved to trash successfully.`);
+      setSelectedIds([]);
+      setTimeout(() => setNotice(""), 3500);
+      await load();
+    } catch (err) {
+      console.error("Bulk trash error:", err);
+      setError(err.message || "Failed to move selected categories to trash.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleBulkRestore = async (idsToRestore) => {
+    if (!idsToRestore || idsToRestore.length === 0) return;
+    if (!window.confirm(`Restore ${idsToRestore.length} category(ies) back to active catalog?`)) return;
+
+    try {
+      setLoading(true);
+      await categoryService.bulkRestore(idsToRestore);
+      setNotice(`${idsToRestore.length} category(ies) restored successfully.`);
+      setSelectedIds([]);
+      setTimeout(() => setNotice(""), 3500);
+      await load();
+    } catch (err) {
+      console.error("Bulk restore error:", err);
+      setError(err.message || "Failed to restore selected categories.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const closeModals = () => {
     setCategoryModal(false);
     setSubcategoryModal(false);
@@ -396,7 +436,7 @@ export default function CategoriesPage() {
           <div className="flex rounded-xl bg-[#FAF5ED] p-1 border border-[#EEDBC5]">
             <button
               type="button"
-              onClick={() => setViewTab("active")}
+              onClick={() => { setViewTab("active"); setSelectedIds([]); }}
               className={`rounded-lg px-4 py-1.5 text-xs font-bold transition ${
                 viewTab === "active"
                   ? "bg-[#5C0F17] text-white shadow-xs"
@@ -407,7 +447,7 @@ export default function CategoriesPage() {
             </button>
             <button
               type="button"
-              onClick={() => setViewTab("trash")}
+              onClick={() => { setViewTab("trash"); setSelectedIds([]); }}
               className={`rounded-lg px-4 py-1.5 text-xs font-bold transition flex items-center gap-1.5 ${
                 viewTab === "trash"
                   ? "bg-red-700 text-white shadow-xs"
@@ -427,7 +467,7 @@ export default function CategoriesPage() {
               value={search}
               maxLength={100}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="Search category..."
+              placeholder="Search categories by name..."
               className={`${fieldClass} pl-9`}
             />
           </div>
@@ -441,11 +481,94 @@ export default function CategoriesPage() {
           </button>
         </div>
 
+        
+        {/* Bulk Action Controls */}
+        {filteredCategories.length > 0 && (
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-neutral-100 bg-[#FAF5ED] px-4 py-2.5 sm:px-6">
+            <div className="flex items-center gap-3">
+              <label className="flex items-center gap-2 text-xs font-bold text-[#2D1C13] cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={filteredCategories.length > 0 && selectedIds.length === filteredCategories.length}
+                  onChange={(e) => {
+                    if (e.target.checked) {
+                      setSelectedIds(filteredCategories.map((c) => c._id || c.id));
+                    } else {
+                      setSelectedIds([]);
+                    }
+                  }}
+                  className="h-4 w-4 rounded accent-[#5C0F17]"
+                />
+                <span>Select All</span>
+              </label>
+              <span className="text-xs font-semibold text-[#5C0F17]">
+                {selectedIds.length > 0 ? `(${selectedIds.length} of ${filteredCategories.length} selected)` : ''}
+              </span>
+            </div>
+
+            <div className="flex items-center gap-2">
+              {viewTab === 'active' ? (
+                <>
+                  <button
+                    type="button"
+                    disabled={selectedIds.length === 0}
+                    onClick={() => handleBulkTrash(selectedIds)}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-red-600 px-3 py-1.5 text-xs font-bold text-white shadow-xs transition hover:bg-red-700 disabled:cursor-not-allowed disabled:bg-neutral-300"
+                  >
+                    <Trash2 size={13} />
+                    Delete Selected
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleBulkTrash(filteredCategories.map((c) => c._id || c.id))}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-red-300 bg-white px-3 py-1.5 text-xs font-bold text-red-700 shadow-xs transition hover:bg-red-50"
+                  >
+                    Delete All
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    disabled={selectedIds.length === 0}
+                    onClick={() => handleBulkRestore(selectedIds)}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white shadow-xs transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-neutral-300"
+                  >
+                    <RotateCcw size={13} />
+                    Restore Selected
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleBulkRestore(filteredCategories.map((c) => c._id || c.id))}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-white px-3 py-1.5 text-xs font-bold text-emerald-700 shadow-xs transition hover:bg-emerald-50"
+                  >
+                    Restore All
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        )}
+
         <div className="overflow-x-auto">
           <table className="w-full min-w-[760px] text-left text-sm">
             <thead className="bg-neutral-50 text-[11px] uppercase tracking-wider text-neutral-500">
               <tr>
-                <th className="w-16 px-5 py-4 font-bold">S.No.</th>
+                <th className="w-12 px-4 py-4 text-center">
+                  <input
+                    type="checkbox"
+                    checked={filteredCategories.length > 0 && selectedIds.length === filteredCategories.length}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setSelectedIds(filteredCategories.map((c) => c._id || c.id));
+                      } else {
+                        setSelectedIds([]);
+                      }
+                    }}
+                    className="h-4 w-4 rounded accent-[#5C0F17]"
+                  />
+                </th>
+                <th className="w-16 px-4 py-4 font-bold">S.No.</th>
                 <th className="w-36 px-4 py-4 font-bold">Action</th>
                 <th className="w-20 px-4 py-4 font-bold">Icon/Image</th>
                 <th className="px-4 py-4 font-bold">Category Name</th>
@@ -462,7 +585,21 @@ export default function CategoriesPage() {
                     key={catId}
                     className="transition hover:bg-rose-50/30"
                   >
-                    <td className="px-5 py-4 font-bold text-neutral-700">
+                    <td className="px-4 py-4 text-center">
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.includes(catId)}
+                        onChange={() => {
+                          setSelectedIds((prev) =>
+                            prev.includes(catId)
+                              ? prev.filter((id) => id !== catId)
+                              : [...prev, catId]
+                          );
+                        }}
+                        className="h-4 w-4 rounded accent-[#5C0F17]"
+                      />
+                    </td>
+                    <td className="px-4 py-4 font-bold text-neutral-700">
                       {index + 1}
                     </td>
 
@@ -759,8 +896,8 @@ export default function CategoriesPage() {
                   className={`${fieldClass} mt-1.5`}
                   placeholder={
                     categoryModal
-                      ? "e.g. Gaming Accessories"
-                      : "e.g. Gaming Headphones"
+                      ? "Enter category name (e.g. Hawan Samagri, Diya & Brass Utensils)"
+                      : "Enter subcategory name (e.g. Pure Ghee Diyas, Camphor & Kapur)"
                   }
                   aria-describedby="category-name-help"
                 />

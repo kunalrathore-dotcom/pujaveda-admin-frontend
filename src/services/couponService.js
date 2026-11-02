@@ -34,6 +34,14 @@ export const couponService = {
     return api.put(`/coupons/${id}/restore`);
   },
 
+  async bulkTrash(ids) {
+    return api.post("/coupons/bulk-trash", { ids });
+  },
+
+  async bulkRestore(ids) {
+    return api.post("/coupons/bulk-restore", { ids });
+  },
+
   async getCouponUsages(id, params = {}) {
     const query = new URLSearchParams();
     if (params.page) query.append("page", params.page);

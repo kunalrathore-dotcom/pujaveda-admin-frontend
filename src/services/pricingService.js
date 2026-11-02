@@ -27,5 +27,13 @@ export const pricingService = {
   async restoreCharge(id) {
     return api.put(`/pricing-charges/${id}/restore`);
   },
+
+  async bulkTrash(ids) {
+    return api.post("/pricing-charges/bulk-trash", { ids });
+  },
+
+  async bulkRestore(ids) {
+    return api.post("/pricing-charges/bulk-restore", { ids });
+  },
 };
 

@@ -280,8 +280,8 @@ export default function ProductsPage() {
       nextErrors.name = "Product name is required.";
     } else if (form.name.trim().length < 2) {
       nextErrors.name = "Product name must be at least 2 characters.";
-    } else if (form.name.trim().length > 100) {
-      nextErrors.name = "Product name cannot exceed 100 characters.";
+    } else if (form.name.trim().length > 80) {
+      nextErrors.name = "Product name cannot exceed 80 characters.";
     }
 
     if (form.sku && form.sku.trim().length > 50) {
@@ -419,9 +419,7 @@ export default function ProductsPage() {
 
     try {
       setLoading(true);
-      for (const id of idsToTrash) {
-        await productService.remove(id);
-      }
+      await productService.bulkTrash(idsToTrash);
       setNotice(`${idsToTrash.length} product(s) moved to trash successfully.`);
       setSelectedIds([]);
       await loadData();
@@ -439,9 +437,7 @@ export default function ProductsPage() {
 
     try {
       setLoading(true);
-      for (const id of idsToRestore) {
-        await productService.restore(id);
-      }
+      await productService.bulkRestore(idsToRestore);
       setNotice(`${idsToRestore.length} product(s) restored successfully.`);
       setSelectedIds([]);
       await loadData();
@@ -818,16 +814,16 @@ export default function ProductsPage() {
                     <label className="text-xs font-bold uppercase tracking-wider text-[#5C0F17]">
                       Product Name *
                     </label>
-                    <span className="text-[10px] text-[#2D1C13]/50">{form.name.length}/100</span>
+                    <span className="text-[10px] text-[#2D1C13]/50">{form.name.length}/80</span>
                   </div>
                   <input
                     required
                     minLength={2}
-                    maxLength={100}
+                    maxLength={80}
                     value={form.name}
                     onChange={(e) => updateField("name", e.target.value)}
                     className={getInputClass(Boolean(errors.name))}
-                    placeholder="e.g. Pure Brass Akhand Diya (Large)"
+                    placeholder="Enter product title (e.g. Pure Brass Akhand Diya - Large)"
                   />
                   {errors.name && <p className="mt-1 text-xs text-red-600">{errors.name}</p>}
                 </div>

@@ -32,6 +32,7 @@ export default function TaxSettingsPage() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [viewTab, setViewTab] = useState("active"); // "active" | "trash"
+  const [selectedIds, setSelectedIds] = useState([]);
 
   // Edit / Create Modal State
   const [modalOpen, setModalOpen] = useState(false);
@@ -91,7 +92,7 @@ export default function TaxSettingsPage() {
       key: "",
       name: "",
       type: "percentage",
-      value: 0,
+      value: "",
       calculationBasis: "discounted_subtotal",
       description: "",
       isActive: true,
@@ -106,7 +107,7 @@ export default function TaxSettingsPage() {
       key: charge.key || "",
       name: charge.name || "",
       type: charge.type || "percentage",
-      value: charge.value ?? 0,
+      value: charge.value !== undefined && charge.value !== null ? charge.value : "",
       calculationBasis: charge.calculationBasis || "discounted_subtotal",
       description: charge.description || "",
       isActive: charge.isActive !== false,
@@ -165,27 +166,91 @@ export default function TaxSettingsPage() {
     }
   };
 
+
+  const handleBulkTrash = async (idsToTrash) => {
+    if (!idsToTrash || idsToTrash.length === 0) return;
+    const eligibleIds = idsToTrash.filter((id) => {
+      const ch = charges.find((c) => (c._id || c.id) === id);
+      return ch && !["gst", "platform_fee"].includes(ch.key);
+    });
+    if (eligibleIds.length === 0) {
+      alert("Standard system charges (GST & Platform Fee) cannot be moved to trash.");
+      return;
+    }
+    if (!window.confirm(`Move ${eligibleIds.length} surcharge(s) to trash? (You can restore them anytime from the Trash tab)`)) return;
+
+    try {
+      setLoading(true);
+      await pricingService.bulkTrash(eligibleIds);
+      setNotice(`${eligibleIds.length} surcharge(s) moved to trash successfully.`);
+      setSelectedIds([]);
+      setTimeout(() => setNotice(""), 3500);
+      await loadCharges();
+    } catch (err) {
+      console.error("Bulk trash error:", err);
+      setError(err.message || "Failed to move selected surcharges to trash.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleBulkRestore = async (idsToRestore) => {
+    if (!idsToRestore || idsToRestore.length === 0) return;
+    if (!window.confirm(`Restore ${idsToRestore.length} surcharge(s) back to active pricing engine?`)) return;
+
+    try {
+      setLoading(true);
+      await pricingService.bulkRestore(idsToRestore);
+      setNotice(`${idsToRestore.length} surcharge(s) restored successfully.`);
+      setSelectedIds([]);
+      setTimeout(() => setNotice(""), 3500);
+      await loadCharges();
+    } catch (err) {
+      console.error("Bulk restore error:", err);
+      setError(err.message || "Failed to restore selected surcharges.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleSaveCharge = async (e) => {
     e.preventDefault();
     setError("");
 
     const errs = {};
-    if (!form.name.trim()) {
-      errs.name = "Charge name is required.";
+    if (!form.name || !form.name.trim()) {
+      errs.name = "Surcharge name is required.";
     } else if (form.name.trim().length < 2 || form.name.trim().length > 60) {
-      errs.name = "Charge name must be between 2 and 60 characters.";
+      errs.name = "Surcharge name must be between 2 and 60 characters.";
     }
 
-    if (!editingCharge && !form.key.trim()) {
+    if (!editingCharge && (!form.key || !form.key.trim())) {
       errs.key = "Unique identifier key is required.";
     } else if (!editingCharge && (form.key.trim().length < 2 || form.key.trim().length > 40)) {
       errs.key = "Charge key must be between 2 and 40 characters.";
     }
 
-    if (form.value === "" || isNaN(form.value) || Number(form.value) < 0) {
-      errs.value = "Please enter a valid non-negative value.";
-    } else if (form.type === "percentage" && Number(form.value) > 100) {
-      errs.value = "Percentage charge cannot exceed 100%.";
+    if (!form.type) {
+      errs.type = "Surcharge type is required.";
+    }
+
+    if (form.value === "" || form.value === null || form.value === undefined || String(form.value).trim() === "") {
+      errs.value = "Surcharge amount or rate is required.";
+    } else {
+      const num = Number(form.value);
+      if (isNaN(num) || !Number.isFinite(num)) {
+        errs.value = "Surcharge amount or rate must be a valid number.";
+      } else if (num <= 0) {
+        errs.value = "Surcharge amount or rate must be greater than zero.";
+      } else if (form.type === "percentage" && num > 100) {
+        errs.value = "Percentage surcharge rate cannot exceed 100%.";
+      } else if (num > 50000) {
+        errs.value = "Fixed surcharge amount cannot exceed ₹50,000.";
+      }
+    }
+
+    if (form.type === "percentage" && !form.calculationBasis) {
+      errs.calculationBasis = "Calculation type is required.";
     }
 
     if (form.description && form.description.length > 300) {
@@ -324,7 +389,7 @@ export default function TaxSettingsPage() {
               <div className="flex rounded-xl bg-[#FAF5ED] p-1 border border-[#EEDBC5]">
                 <button
                   type="button"
-                  onClick={() => setViewTab("active")}
+                  onClick={() => { setViewTab("active"); setSelectedIds([]); }}
                   className={`rounded-lg px-3 py-1 text-xs font-bold transition ${
                     viewTab === "active"
                       ? "bg-[#5C0F17] text-white shadow-xs"
@@ -335,7 +400,7 @@ export default function TaxSettingsPage() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setViewTab("trash")}
+                  onClick={() => { setViewTab("trash"); setSelectedIds([]); }}
                   className={`rounded-lg px-3 py-1 text-xs font-bold transition flex items-center gap-1.5 ${
                     viewTab === "trash"
                       ? "bg-red-700 text-white shadow-xs"
@@ -346,6 +411,89 @@ export default function TaxSettingsPage() {
                 </button>
               </div>
             </div>
+
+
+            {/* Bulk Action Controls */}
+            {charges.length > 0 && (
+              <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#EEDBC5] bg-[#FAF5ED] px-4 py-3">
+                <div className="flex items-center gap-3">
+                  <label className="flex items-center gap-2 text-xs font-bold text-[#2D1C13] cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={
+                        charges.filter((c) => !['gst', 'platform_fee'].includes(c.key)).length > 0 &&
+                        selectedIds.length === charges.filter((c) => !['gst', 'platform_fee'].includes(c.key)).length
+                      }
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          const nonSystem = charges
+                            .filter((c) => !['gst', 'platform_fee'].includes(c.key))
+                            .map((c) => c._id || c.id);
+                          setSelectedIds(nonSystem);
+                        } else {
+                          setSelectedIds([]);
+                        }
+                      }}
+                      className="h-4 w-4 rounded accent-[#5C0F17]"
+                    />
+                    <span>Select All</span>
+                  </label>
+                  <span className="text-xs font-semibold text-[#5C0F17]">
+                    {selectedIds.length > 0 ? `(${selectedIds.length} selected)` : ''}
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  {viewTab === 'active' ? (
+                    <>
+                      <button
+                        type="button"
+                        disabled={selectedIds.length === 0}
+                        onClick={() => handleBulkTrash(selectedIds)}
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-red-600 px-3 py-1.5 text-xs font-bold text-white shadow-xs transition hover:bg-red-700 disabled:cursor-not-allowed disabled:bg-neutral-300"
+                      >
+                        <Trash2 size={13} />
+                        Delete Selected
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          handleBulkTrash(
+                            charges
+                              .filter((c) => !['gst', 'platform_fee'].includes(c.key))
+                              .map((c) => c._id || c.id)
+                          )
+                        }
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-red-300 bg-white px-3 py-1.5 text-xs font-bold text-red-700 shadow-xs transition hover:bg-red-50"
+                      >
+                        Delete All
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button
+                        type="button"
+                        disabled={selectedIds.length === 0}
+                        onClick={() => handleBulkRestore(selectedIds)}
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white shadow-xs transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-neutral-300"
+                      >
+                        <RotateCcw size={13} />
+                        Restore Selected
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          handleBulkRestore(charges.map((c) => c._id || c.id))
+                        }
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-white px-3 py-1.5 text-xs font-bold text-emerald-700 shadow-xs transition hover:bg-emerald-50"
+                      >
+                        Restore All
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
 
             <div className="mt-5 space-y-3">
               {loading ? (
@@ -362,16 +510,33 @@ export default function TaxSettingsPage() {
                   const isGst = charge.key === "gst";
                   const isPlatform = charge.key === "platform_fee";
 
+                  const chId = charge._id || charge.id;
+                  const isSelectable = !['gst', 'platform_fee'].includes(charge.key);
                   return (
                     <div
-                      key={charge._id || charge.key}
+                      key={chId}
                       className={`relative flex flex-col justify-between rounded-xl border p-4 sm:flex-row sm:items-center ${
                         charge.isActive
                           ? "border-neutral-200 bg-neutral-50/50"
                           : "border-neutral-200/60 bg-neutral-100/50 opacity-60"
                       }`}
                     >
-                      <div className="space-y-1">
+                      <div className="flex items-start gap-3">
+                        {isSelectable && (
+                          <input
+                            type="checkbox"
+                            checked={selectedIds.includes(chId)}
+                            onChange={() => {
+                              setSelectedIds((prev) =>
+                                prev.includes(chId)
+                                  ? prev.filter((id) => id !== chId)
+                                  : [...prev, chId]
+                              );
+                            }}
+                            className="mt-1 h-4 w-4 rounded accent-[#5C0F17]"
+                          />
+                        )}
+                        <div className="space-y-1">
                         <div className="flex items-center gap-2">
                           <span
                             className={`flex h-8 w-8 items-center justify-center rounded-lg text-sm font-bold ${
@@ -420,6 +585,7 @@ export default function TaxSettingsPage() {
                           >
                             {charge.isActive ? "Active in Checkout" : "Disabled"}
                           </span>
+                        </div>
                         </div>
                       </div>
 
@@ -707,12 +873,15 @@ export default function TaxSettingsPage() {
               {form.type === "percentage" && (
                 <div>
                   <label className="mb-1 block text-xs font-semibold text-neutral-700">
-                    Calculation Basis
+                    Calculation Type *
                   </label>
                   <select
                     value={form.calculationBasis}
-                    onChange={(e) => setForm({ ...form, calculationBasis: e.target.value })}
-                    className={inputClass}
+                    onChange={(e) => {
+                      setForm({ ...form, calculationBasis: e.target.value });
+                      if (fieldErrors.calculationBasis) setFieldErrors({ ...fieldErrors, calculationBasis: "" });
+                    }}
+                    className={getInputClass(Boolean(fieldErrors.calculationBasis))}
                   >
                     <option value="discounted_subtotal">
                       Discounted Subtotal (Subtotal - Coupon Discount) [Standard]
@@ -721,12 +890,15 @@ export default function TaxSettingsPage() {
                       Raw Subtotal (Before Coupon Discount)
                     </option>
                   </select>
+                  {fieldErrors.calculationBasis && (
+                    <p className="mt-1 text-[11px] font-semibold text-rose-600">{fieldErrors.calculationBasis}</p>
+                  )}
                 </div>
               )}
 
               <div>
                 <label className="mb-1 block text-xs font-semibold text-neutral-700">
-                  Customer Explanation Description
+                  Customer Explanation Description <span className="font-normal text-neutral-400">(Optional)</span>
                 </label>
                 <textarea
                   rows={2}

@@ -204,6 +204,45 @@ export default function PromotionalSectionsPage() {
     }
   };
 
+
+  const handleBulkTrash = async (idsToTrash) => {
+    if (!idsToTrash || idsToTrash.length === 0) return;
+    if (!window.confirm(`Move ${idsToTrash.length} promotional card(s) to trash? (You can restore them anytime from the Trash tab)`)) return;
+
+    try {
+      setSaving(true);
+      await promotionalSectionService.bulkTrash(idsToTrash);
+      setNotice(`${idsToTrash.length} card(s) moved to trash successfully.`);
+      setSelectedIds([]);
+      setTimeout(() => setNotice(""), 3500);
+      await load();
+    } catch (err) {
+      console.error("Bulk trash error:", err);
+      setError(err.message || "Failed to move selected cards to trash.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleBulkRestore = async (idsToRestore) => {
+    if (!idsToRestore || idsToRestore.length === 0) return;
+    if (!window.confirm(`Restore ${idsToRestore.length} promotional card(s) back to active catalog?`)) return;
+
+    try {
+      setSaving(true);
+      await promotionalSectionService.bulkRestore(idsToRestore);
+      setNotice(`${idsToRestore.length} card(s) restored successfully.`);
+      setSelectedIds([]);
+      setTimeout(() => setNotice(""), 3500);
+      await load();
+    } catch (err) {
+      console.error("Bulk restore error:", err);
+      setError(err.message || "Failed to restore selected cards.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleRestore = async (card) => {
     const id = card._id || card.id;
     try {
@@ -276,6 +315,75 @@ export default function PromotionalSectionsPage() {
       </div>
 
       {/* Cards Grid */}
+
+      {/* Bulk Action Controls */}
+      {cards.length > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#EEDBC5] bg-[#FAF5ED] px-4 py-3">
+          <div className="flex items-center gap-3">
+            <label className="flex items-center gap-2 text-xs font-bold text-[#2D1C13] cursor-pointer">
+              <input
+                type="checkbox"
+                checked={cards.length > 0 && selectedIds.length === cards.length}
+                onChange={(e) => {
+                  if (e.target.checked) {
+                    setSelectedIds(cards.map((c) => c._id || c.id));
+                  } else {
+                    setSelectedIds([]);
+                  }
+                }}
+                className="h-4 w-4 rounded accent-[#5C0F17]"
+              />
+              <span>Select All</span>
+            </label>
+            <span className="text-xs font-semibold text-[#5C0F17]">
+              {selectedIds.length > 0 ? `(${selectedIds.length} of ${cards.length} selected)` : ''}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {viewTab === 'active' ? (
+              <>
+                <button
+                  type="button"
+                  disabled={selectedIds.length === 0}
+                  onClick={() => handleBulkTrash(selectedIds)}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-red-600 px-3 py-1.5 text-xs font-bold text-white shadow-xs transition hover:bg-red-700 disabled:cursor-not-allowed disabled:bg-neutral-300"
+                >
+                  <Trash2 size={13} />
+                  Delete Selected
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleBulkTrash(cards.map((c) => c._id || c.id))}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-red-300 bg-white px-3 py-1.5 text-xs font-bold text-red-700 shadow-xs transition hover:bg-red-50"
+                >
+                  Delete All
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  disabled={selectedIds.length === 0}
+                  onClick={() => handleBulkRestore(selectedIds)}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white shadow-xs transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-neutral-300"
+                >
+                  <RotateCcw size={13} />
+                  Restore Selected
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleBulkRestore(cards.map((c) => c._id || c.id))}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-white px-3 py-1.5 text-xs font-bold text-emerald-700 shadow-xs transition hover:bg-emerald-50"
+                >
+                  Restore All
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {cards.map((card) => {
           const id = card._id || card.id;

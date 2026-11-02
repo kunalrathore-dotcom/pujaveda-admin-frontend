@@ -48,4 +48,16 @@ export const productService = {
     broadcastChange();
     return data.success;
   },
+
+  async bulkTrash(ids) {
+    const data = await api.post("/products/bulk-trash", { ids });
+    broadcastChange();
+    return data.success;
+  },
+
+  async bulkRestore(ids) {
+    const data = await api.post("/products/bulk-restore", { ids });
+    broadcastChange();
+    return data.success;
+  },
 };

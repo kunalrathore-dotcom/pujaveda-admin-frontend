@@ -26,5 +26,13 @@ export const promotionalSectionService = {
   async restore(id) {
     return api.put(`/content/divine-cards/${id}/restore`);
   },
+
+  async bulkTrash(ids) {
+    return api.post("/content/divine-cards/bulk-trash", { ids });
+  },
+
+  async bulkRestore(ids) {
+    return api.post("/content/divine-cards/bulk-restore", { ids });
+  },
 };
 

@@ -211,6 +211,45 @@ export default function BannersPage() {
     }
   };
 
+
+  const handleBulkTrash = async (idsToTrash) => {
+    if (!idsToTrash || idsToTrash.length === 0) return;
+    if (!window.confirm(`Move ${idsToTrash.length} banner(s) to trash? (You can restore them anytime from the Trash tab)`)) return;
+
+    try {
+      setSaving(true);
+      await bannerService.bulkTrash(idsToTrash);
+      setNotice(`${idsToTrash.length} banner(s) moved to trash successfully.`);
+      setSelectedIds([]);
+      setTimeout(() => setNotice(""), 3500);
+      await load();
+    } catch (err) {
+      console.error("Bulk trash error:", err);
+      setError(err.message || "Failed to move selected banners to trash.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleBulkRestore = async (idsToRestore) => {
+    if (!idsToRestore || idsToRestore.length === 0) return;
+    if (!window.confirm(`Restore ${idsToRestore.length} banner(s) back to active catalog?`)) return;
+
+    try {
+      setSaving(true);
+      await bannerService.bulkRestore(idsToRestore);
+      setNotice(`${idsToRestore.length} banner(s) restored successfully.`);
+      setSelectedIds([]);
+      setTimeout(() => setNotice(""), 3500);
+      await load();
+    } catch (err) {
+      console.error("Bulk restore error:", err);
+      setError(err.message || "Failed to restore selected banners.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const toggleActive = async (banner) => {
     const bannerId = banner._id || banner.id;
     try {
@@ -283,12 +322,93 @@ export default function BannersPage() {
         </button>
       </div>
 
+
+      {/* Bulk Action Controls */}
+      {banners.length > 0 && (
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#EEDBC5] bg-[#FAF5ED] px-4 py-3">
+          <div className="flex items-center gap-3">
+            <label className="flex items-center gap-2 text-xs font-bold text-[#2D1C13] cursor-pointer">
+              <input
+                type="checkbox"
+                checked={banners.length > 0 && selectedIds.length === banners.length}
+                onChange={(e) => {
+                  if (e.target.checked) {
+                    setSelectedIds(banners.map((b) => b._id || b.id));
+                  } else {
+                    setSelectedIds([]);
+                  }
+                }}
+                className="h-4 w-4 rounded accent-[#5C0F17]"
+              />
+              <span>Select All</span>
+            </label>
+            <span className="text-xs font-semibold text-[#5C0F17]">
+              {selectedIds.length > 0 ? `(${selectedIds.length} of ${banners.length} selected)` : ''}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {viewTab === 'active' ? (
+              <>
+                <button
+                  type="button"
+                  disabled={selectedIds.length === 0}
+                  onClick={() => handleBulkTrash(selectedIds)}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-red-600 px-3 py-1.5 text-xs font-bold text-white shadow-xs transition hover:bg-red-700 disabled:cursor-not-allowed disabled:bg-neutral-300"
+                >
+                  <Trash2 size={13} />
+                  Delete Selected
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleBulkTrash(banners.map((b) => b._id || b.id))}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-red-300 bg-white px-3 py-1.5 text-xs font-bold text-red-700 shadow-xs transition hover:bg-red-50"
+                >
+                  Delete All
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  disabled={selectedIds.length === 0}
+                  onClick={() => handleBulkRestore(selectedIds)}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white shadow-xs transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-neutral-300"
+                >
+                  <RotateCcw size={13} />
+                  Restore Selected
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleBulkRestore(banners.map((b) => b._id || b.id))}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-white px-3 py-1.5 text-xs font-bold text-emerald-700 shadow-xs transition hover:bg-emerald-50"
+                >
+                  Restore All
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
       <div className="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-        {banners.map((banner) => (
+        {banners.map((banner) => {
+          const bId = banner._id || banner.id;
+          return (
           <article
-            key={banner._id || banner.id}
+            key={bId}
             className="group relative overflow-hidden rounded-2xl border border-[#EEDBC5] bg-[#FFFDF9] shadow-xs flex flex-col justify-between"
           >
+            <input
+              type="checkbox"
+              checked={selectedIds.includes(bId)}
+              onChange={() => {
+                setSelectedIds((prev) =>
+                  prev.includes(bId) ? prev.filter((id) => id !== bId) : [...prev, bId]
+                );
+              }}
+              className="absolute right-3 top-3 z-20 h-5 w-5 rounded accent-[#5C0F17] shadow-sm cursor-pointer"
+            />
             <div className="relative aspect-[16/9] w-full overflow-hidden bg-[#FAF5ED]">
               <img
                 src={resolveImageUrl(banner.imageUrl)}
@@ -368,7 +488,7 @@ export default function BannersPage() {
               </div>
             </div>
           </article>
-        ))}
+        );})}
 
         {banners.length === 0 && (
           <div className="col-span-full rounded-2xl border border-dashed border-[#EEDBC5] bg-[#FFF8EE] p-12 text-center">

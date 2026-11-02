@@ -34,6 +34,7 @@ export default function CouponsPage() {
   const [discountTypeFilter, setDiscountTypeFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [viewTab, setViewTab] = useState("active"); // "active" | "trash"
+  const [selectedIds, setSelectedIds] = useState([]);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
@@ -241,6 +242,45 @@ export default function CouponsPage() {
     }
   };
 
+
+  const handleBulkTrash = async (idsToTrash) => {
+    if (!idsToTrash || idsToTrash.length === 0) return;
+    if (!window.confirm(`Move ${idsToTrash.length} coupon(s) to trash? (You can restore them anytime from the Trash tab)`)) return;
+
+    try {
+      setLoading(true);
+      await couponService.bulkTrash(idsToTrash);
+      setNotice(`${idsToTrash.length} coupon(s) moved to trash successfully.`);
+      setSelectedIds([]);
+      setTimeout(() => setNotice(""), 3500);
+      await loadCoupons();
+    } catch (err) {
+      console.error("Bulk trash error:", err);
+      setError(err.message || "Failed to move selected coupons to trash.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleBulkRestore = async (idsToRestore) => {
+    if (!idsToRestore || idsToRestore.length === 0) return;
+    if (!window.confirm(`Restore ${idsToRestore.length} coupon(s) back to active catalog?`)) return;
+
+    try {
+      setLoading(true);
+      await couponService.bulkRestore(idsToRestore);
+      setNotice(`${idsToRestore.length} coupon(s) restored successfully.`);
+      setSelectedIds([]);
+      setTimeout(() => setNotice(""), 3500);
+      await loadCoupons();
+    } catch (err) {
+      console.error("Bulk restore error:", err);
+      setError(err.message || "Failed to restore selected coupons.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleToggleStatus = async (coupon) => {
     try {
       await couponService.toggleStatus(coupon._id);
@@ -403,7 +443,7 @@ export default function CouponsPage() {
         <div className="flex rounded-xl bg-[#FAF5ED] p-1 border border-[#EEDBC5] w-fit">
           <button
             type="button"
-            onClick={() => setViewTab("active")}
+            onClick={() => { setViewTab("active"); setSelectedIds([]); }}
             className={`rounded-lg px-4 py-1.5 text-xs font-bold transition ${
               viewTab === "active"
                 ? "bg-[#5C0F17] text-white shadow-xs"
@@ -414,7 +454,7 @@ export default function CouponsPage() {
           </button>
           <button
             type="button"
-            onClick={() => setViewTab("trash")}
+            onClick={() => { setViewTab("trash"); setSelectedIds([]); }}
             className={`rounded-lg px-4 py-1.5 text-xs font-bold transition flex items-center gap-1.5 ${
               viewTab === "trash"
                 ? "bg-red-700 text-white shadow-xs"
@@ -502,8 +542,21 @@ export default function CouponsPage() {
               ) : (
                 coupons.map((c) => {
                   const isExpired = c.expiryDate && new Date(c.expiryDate) < new Date();
+                  const cId = c._id || c.id;
                   return (
-                    <tr key={c._id} className="hover:bg-neutral-50/60 transition">
+                    <tr key={cId} className="hover:bg-neutral-50/60 transition">
+                      <td className="px-4 py-3.5 text-center">
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.includes(cId)}
+                          onChange={() => {
+                            setSelectedIds((prev) =>
+                              prev.includes(cId) ? prev.filter((id) => id !== cId) : [...prev, cId]
+                            );
+                          }}
+                          className="h-4 w-4 rounded accent-[#5C0F17]"
+                        />
+                      </td>
                       <td className="py-3.5 px-4">
                         <div className="flex items-center gap-2">
                           <span className="font-mono font-black text-neutral-900 bg-rose-50 text-[#5C0F17] px-2.5 py-1 rounded-lg border border-rose-100">

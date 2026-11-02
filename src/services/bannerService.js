@@ -39,4 +39,16 @@ export const bannerService = {
     broadcastChange();
     return data.success;
   },
+
+  async bulkTrash(ids) {
+    const data = await api.post("/banners/bulk-trash", { ids });
+    broadcastChange();
+    return data.success;
+  },
+
+  async bulkRestore(ids) {
+    const data = await api.post("/banners/bulk-restore", { ids });
+    broadcastChange();
+    return data.success;
+  },
 };

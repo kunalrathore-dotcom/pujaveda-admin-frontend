@@ -86,4 +86,28 @@ export const categoryService = {
     broadcastChange();
     return data.success;
   },
+
+  async bulkTrash(ids) {
+    const data = await api.post("/categories/bulk-trash", { ids });
+    broadcastChange();
+    return data.success;
+  },
+
+  async bulkRestore(ids) {
+    const data = await api.post("/categories/bulk-restore", { ids });
+    broadcastChange();
+    return data.success;
+  },
+
+  async bulkTrashSubcategories(items) {
+    const data = await api.post("/categories/subcategories/bulk-trash", { items });
+    broadcastChange();
+    return data.success;
+  },
+
+  async bulkRestoreSubcategories(items) {
+    const data = await api.post("/categories/subcategories/bulk-restore", { items });
+    broadcastChange();
+    return data.success;
+  },
 };

@@ -174,6 +174,20 @@ export default function EarningsPage() {
     fetchSummary("", "");
   };
 
+  const formatPurchasedDate = (dateStr) => {
+    if (!dateStr) return "N/A";
+    const d = new Date(dateStr);
+    const day = d.toLocaleDateString("en-GB", { day: "2-digit" });
+    const month = d.toLocaleDateString("en-GB", { month: "short" });
+    const year = d.toLocaleDateString("en-GB", { year: "numeric" });
+    const time = d.toLocaleTimeString("en-US", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+    }).toLowerCase();
+    return `${day} ${month} ${year}, ${time}`;
+  };
+
   const getPaymentStatusBadge = (status = "pending") => {
     const s = String(status).toLowerCase();
     switch (s) {
@@ -244,12 +258,12 @@ export default function EarningsPage() {
       {/* ============================================================ */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         {/* Card 1: Total Revenue */}
-        <div className="rounded-2xl border border-neutral-200/80 bg-white p-5 sm:p-6 shadow-xs flex items-center gap-4 transition hover:shadow-sm">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600 border border-emerald-100">
+        <div className="rounded-2xl border border-neutral-100 bg-white p-6 shadow-xs flex items-center gap-4 transition hover:shadow-sm">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#E8FAF7] text-[#00A389] border border-[#00A389]/15">
             <IndianRupee size={22} className="stroke-[2.5]" />
           </div>
           <div>
-            <span className="text-xs font-bold text-neutral-500 block">Total Revenue</span>
+            <span className="text-xs font-semibold text-neutral-400 block">Total Revenue</span>
             <div className="text-2xl font-black text-neutral-900 font-mono mt-0.5">
               {summaryLoading ? (
                 <div className="h-7 w-28 animate-pulse rounded bg-neutral-200" />
@@ -257,19 +271,16 @@ export default function EarningsPage() {
                 `Rs ${(summary.totalRevenue ?? summary.customerPaid ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}`
               )}
             </div>
-            <p className="text-[11px] text-neutral-400 mt-0.5">
-              Overall amount collected through eligible orders
-            </p>
           </div>
         </div>
 
         {/* Card 2: Today's Revenue */}
-        <div className="rounded-2xl border border-neutral-200/80 bg-white p-5 sm:p-6 shadow-xs flex items-center gap-4 transition hover:shadow-sm">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#DA9B26]/10 text-[#5C0F17] border border-[#DA9B26]/20">
-            <Sparkles size={22} className="text-[#DA9B26]" />
+        <div className="rounded-2xl border border-neutral-100 bg-white p-6 shadow-xs flex items-center gap-4 transition hover:shadow-sm">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#E8FAF7] text-[#00A389] border border-[#00A389]/15">
+            <Sparkles size={22} className="stroke-[2.5]" />
           </div>
           <div>
-            <span className="text-xs font-bold text-neutral-500 block">Today's Revenue</span>
+            <span className="text-xs font-semibold text-neutral-400 block">Today's Revenue</span>
             <div className="text-2xl font-black text-neutral-900 font-mono mt-0.5">
               {summaryLoading ? (
                 <div className="h-7 w-28 animate-pulse rounded bg-neutral-200" />
@@ -277,9 +288,6 @@ export default function EarningsPage() {
                 `Rs ${(summary.todayRevenue ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}`
               )}
             </div>
-            <p className="text-[11px] text-neutral-400 mt-0.5">
-              Amount actually collected today (payment date)
-            </p>
           </div>
         </div>
       </div>
@@ -373,7 +381,7 @@ export default function EarningsPage() {
                   <th className="px-5 py-4 font-bold whitespace-nowrap">S.No</th>
                   <th className="px-5 py-4 font-bold whitespace-nowrap">User</th>
                   <th className="px-5 py-4 font-bold whitespace-nowrap">Transaction ID</th>
-                  <th className="px-5 py-4 font-bold whitespace-nowrap text-center">Items</th>
+                  <th className="px-5 py-4 font-bold whitespace-nowrap text-center">Tokens</th>
                   <th className="px-5 py-4 font-bold whitespace-nowrap">Amount</th>
                   <th className="px-5 py-4 font-bold whitespace-nowrap">Purchased Date & Time</th>
                   <th className="px-5 py-4 font-bold whitespace-nowrap text-center">Status</th>
@@ -433,16 +441,7 @@ export default function EarningsPage() {
                     </td>
 
                     <td className="px-5 py-4 text-neutral-600 whitespace-nowrap text-xs">
-                      {o.orderDate
-                        ? new Date(o.orderDate).toLocaleString("en-IN", {
-                            day: "2-digit",
-                            month: "short",
-                            year: "numeric",
-                            hour: "2-digit",
-                            minute: "2-digit",
-                            hour12: true,
-                          })
-                        : "N/A"}
+                      {formatPurchasedDate(o.orderDate)}
                     </td>
 
                     <td className="px-5 py-4 text-center whitespace-nowrap">

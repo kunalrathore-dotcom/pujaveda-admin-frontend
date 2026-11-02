@@ -47,8 +47,10 @@ export default function App() {
             <Route path="orders" element={<OrdersPage />} />
             <Route path="orders/:id" element={<OrderDetailPage />} />
             <Route path="earnings" element={<EarningsPage />} />
+            <Route path="manage-earning" element={<EarningsPage />} />
             <Route path="customers" element={<CustomersPage />} />
             <Route path="customers/:id" element={<CustomerDetailPage />} />
+            <Route path="view-user/:id" element={<CustomerDetailPage />} />
             <Route path="coupons" element={<CouponsPage />} />
             <Route path="taxes" element={<TaxSettingsPage />} />
             <Route path="audit-logs" element={<AuditLogsPage />} />

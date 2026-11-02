@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
+import { useParams, useNavigate } from "react-router-dom";
 import {
   Search,
   CheckCircle2,
@@ -21,11 +22,60 @@ import {
   TrendingUp,
   User,
   ShieldCheck,
+  RefreshCw,
+  AlertTriangle,
+  ArrowLeft,
 } from "lucide-react";
 import { api } from "../services/api";
 import { resolveImageUrl } from "../utils/imageHelper";
 
+/**
+ * Determines whether an order is officially confirmed collected.
+ * Rules:
+ * - Cancelled orders are never collected.
+ * - COD orders are collected ONLY after orderStatus is 'Delivered' AND paymentStatus is 'paid'.
+ * - Online orders (Razorpay, demo_online) are collected ONLY if paymentStatus is 'paid'.
+ */
+function isOrderCollected(order) {
+  if (!order || order.orderStatus === "Cancelled") return false;
+  if (order.paymentMethod === "cod") {
+    return order.orderStatus === "Delivered" && order.paymentStatus === "paid";
+  }
+  return order.paymentStatus === "paid";
+}
+
+/**
+ * Calculates eligible fee earnings on an order (platform fee + eligible service charges).
+ * Strictly excludes taxes, shipping, and duplicate charges.
+ */
+function getOrderAdminFee(order) {
+  if (!order) return 0;
+  const platformFee = Number(order.platformFee || 0);
+  const charges = Array.isArray(order.chargesBreakdown) ? order.chargesBreakdown : [];
+  const additional = charges.reduce((acc, c) => {
+    const key = (c.key || "").toLowerCase();
+    const name = (c.name || "").toLowerCase();
+    if (
+      key === "gst" ||
+      key === "tax" ||
+      key === "platform_fee" ||
+      key === "shipping" ||
+      name.includes("gst") ||
+      name.includes("tax") ||
+      name.includes("shipping") ||
+      name.includes("platform fee")
+    ) {
+      return acc;
+    }
+    return acc + (Number(c.amount) || 0);
+  }, 0);
+  return Number((platformFee + additional).toFixed(2));
+}
+
 export default function OrdersPage() {
+  const { id: routeOrderId } = useParams();
+  const navigate = useNavigate();
+
   const [orders, setOrders] = useState([]);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -74,6 +124,53 @@ export default function OrdersPage() {
     loadOrders();
   }, [statusFilter, paymentStatusFilter, page]);
 
+  // Fetch full details for a given order by ID or orderNumber
+  const fetchAndOpenOrder = useCallback(async (orderIdentifier, initialOrder = null) => {
+    if (initialOrder) {
+      setSelectedOrder(initialOrder);
+    }
+    setDetailsError(null);
+    try {
+      setDetailsLoading(true);
+      const res = await api.get(`/orders/${orderIdentifier}`);
+      if (res && res.success && res.order) {
+        setSelectedOrder(res.order);
+      } else if (!initialOrder) {
+        setDetailsError("Order details could not be found.");
+      }
+    } catch (err) {
+      console.error("Fetch single order error:", err);
+      if (!initialOrder) {
+        setDetailsError(err.message || "Failed to load complete order details from server.");
+      }
+    } finally {
+      setDetailsLoading(false);
+    }
+  }, []);
+
+  // Handle URL route changes (e.g. /orders/:id)
+  useEffect(() => {
+    if (routeOrderId) {
+      const match = orders.find(
+        (o) => o._id === routeOrderId || o.orderNumber === routeOrderId
+      );
+      fetchAndOpenOrder(routeOrderId, match || null);
+    }
+  }, [routeOrderId, orders, fetchAndOpenOrder]);
+
+  const handleOpenOrder = (order) => {
+    setSelectedOrder(order);
+    fetchAndOpenOrder(order._id || order.orderNumber, order);
+  };
+
+  const handleCloseOrder = () => {
+    setSelectedOrder(null);
+    setDetailsError(null);
+    if (routeOrderId) {
+      navigate("/orders", { replace: true });
+    }
+  };
+
   const handleSearchSubmit = (e) => {
     e.preventDefault();
     setPage(1);
@@ -95,32 +192,24 @@ export default function OrdersPage() {
     setPage(1);
   };
 
-  // Open complete order details on click
-  const handleOpenOrder = async (order) => {
-    setSelectedOrder(order);
-    setDetailsError(null);
-    try {
-      setDetailsLoading(true);
-      const res = await api.get(`/orders/${order._id || order.orderNumber}`);
-      if (res.success && res.order) {
-        setSelectedOrder(res.order);
-      }
-    } catch (err) {
-      console.warn("Could not fetch extra order details, showing cached order:", err.message);
-    } finally {
-      setDetailsLoading(false);
-    }
-  };
-
   const handleStatusChange = async (orderId, newStatus) => {
     try {
       setUpdatingId(orderId);
-      await api.put(`/orders/${orderId}/status`, { orderStatus: newStatus });
+      const res = await api.put(`/orders/${orderId}/status`, { orderStatus: newStatus });
+      const updated = res.order;
       setOrders((prev) =>
-        prev.map((o) => (o._id === orderId ? { ...o, orderStatus: newStatus } : o))
+        prev.map((o) =>
+          o._id === orderId
+            ? { ...o, orderStatus: newStatus, paymentStatus: updated?.paymentStatus || o.paymentStatus }
+            : o
+        )
       );
       if (selectedOrder && selectedOrder._id === orderId) {
-        setSelectedOrder((prev) => ({ ...prev, orderStatus: newStatus }));
+        setSelectedOrder((prev) => ({
+          ...prev,
+          orderStatus: newStatus,
+          paymentStatus: updated?.paymentStatus || prev.paymentStatus,
+        }));
       }
     } catch (err) {
       alert(`Failed to update status: ${err.message}`);
@@ -129,7 +218,7 @@ export default function OrdersPage() {
     }
   };
 
-  const getStatusBadge = (status) => {
+  const getStatusBadge = (status = "Pending") => {
     switch (status) {
       case "Delivered":
         return "bg-emerald-100 text-emerald-800 border-emerald-200";
@@ -142,8 +231,9 @@ export default function OrdersPage() {
     }
   };
 
-  const getPaymentStatusBadge = (status) => {
-    switch (status) {
+  const getPaymentStatusBadge = (status = "pending") => {
+    const s = String(status).toLowerCase();
+    switch (s) {
       case "paid":
         return "bg-emerald-100 text-emerald-800 border-emerald-200";
       case "failed":
@@ -160,7 +250,7 @@ export default function OrdersPage() {
         <div>
           <h1 className="text-2xl font-black text-neutral-900">Orders</h1>
           <p className="mt-1 text-xs text-neutral-500">
-            Monitor, inspect and update customer orders ({totalOrders} total). Click any order to open complete details.
+            Monitor, inspect and update customer orders ({totalOrders} total). Click any order row to open complete details.
           </p>
         </div>
       </div>
@@ -294,37 +384,39 @@ export default function OrdersPage() {
                     </td>
                     <td className="px-5 py-4">
                       <p className="font-semibold text-neutral-800">{order.customerDetails?.name || "Customer"}</p>
-                      <p className="text-[11px] text-neutral-400">{order.customerDetails?.email}</p>
+                      <p className="text-[11px] text-neutral-400">{order.customerDetails?.email || "N/A"}</p>
                     </td>
                     <td className="px-5 py-4 text-neutral-600 font-medium">
                       {order.items?.length || 0} product(s)
                     </td>
                     <td className="px-5 py-4 font-black text-neutral-900">
-                      ₹{Number(order.totalAmount).toLocaleString("en-IN")}
+                      ₹{Number(order.totalAmount || 0).toLocaleString("en-IN")}
                     </td>
                     <td className="px-5 py-4 text-neutral-500 whitespace-nowrap">
-                      {new Date(order.createdAt).toLocaleDateString("en-IN", {
-                        day: "numeric",
-                        month: "short",
-                        year: "numeric",
-                      })}
+                      {order.createdAt
+                        ? new Date(order.createdAt).toLocaleDateString("en-IN", {
+                            day: "numeric",
+                            month: "short",
+                            year: "numeric",
+                          })
+                        : "N/A"}
                     </td>
                     <td className="px-5 py-4">
                       <div className="flex items-center gap-1.5">
-                        <span className="font-semibold uppercase text-neutral-700">{order.paymentMethod}</span>
+                        <span className="font-semibold uppercase text-neutral-700">{order.paymentMethod || "cod"}</span>
                         <span
                           className={`rounded-full border px-2 py-0.5 text-[10px] font-bold ${getPaymentStatusBadge(
                             order.paymentStatus
                           )}`}
                         >
-                          {order.paymentStatus}
+                          {order.paymentStatus || "pending"}
                         </span>
                       </div>
                     </td>
                     <td className="px-5 py-4" onClick={(e) => e.stopPropagation()}>
                       <select
                         disabled={updatingId === order._id}
-                        value={order.orderStatus}
+                        value={order.orderStatus || "Pending"}
                         onChange={(e) => handleStatusChange(order._id, e.target.value)}
                         className={`rounded-xl border px-2.5 py-1 text-xs font-bold outline-none transition ${getStatusBadge(
                           order.orderStatus
@@ -394,10 +486,10 @@ export default function OrdersPage() {
       {selectedOrder && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-3 sm:p-5 backdrop-blur-xs">
           <div className="relative max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-3xl bg-white p-6 sm:p-8 shadow-2xl border border-neutral-100">
-            {/* Close Button */}
+            {/* Close / Back Button */}
             <button
               type="button"
-              onClick={() => setSelectedOrder(null)}
+              onClick={handleCloseOrder}
               className="absolute right-5 top-5 rounded-full p-2 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-900 transition"
               aria-label="Close"
             >
@@ -413,28 +505,31 @@ export default function OrdersPage() {
                 <div>
                   <div className="flex items-center gap-2">
                     <h2 className="text-xl font-black text-neutral-900">
-                      Order {selectedOrder.orderNumber}
+                      Order {selectedOrder.orderNumber || "Details"}
                     </h2>
                     <span
-                      className={`rounded-full border px-2.5 py-0.5 text-[10px] font-bold ${getOrderStatusBadge(
+                      className={`rounded-full border px-2.5 py-0.5 text-[10px] font-bold ${getStatusBadge(
                         selectedOrder.orderStatus
                       )}`}
                     >
-                      {selectedOrder.orderStatus}
+                      {selectedOrder.orderStatus || "Pending"}
                     </span>
                     <span
                       className={`rounded-full border px-2.5 py-0.5 text-[10px] font-bold uppercase ${getPaymentStatusBadge(
                         selectedOrder.paymentStatus
                       )}`}
                     >
-                      {selectedOrder.paymentStatus}
+                      {selectedOrder.paymentStatus || "pending"}
                     </span>
                   </div>
                   <p className="mt-0.5 text-xs text-neutral-400">
-                    Placed on: {new Date(selectedOrder.createdAt).toLocaleString("en-IN", {
-                      dateStyle: "medium",
-                      timeStyle: "short",
-                    })}
+                    Placed on:{" "}
+                    {selectedOrder.createdAt
+                      ? new Date(selectedOrder.createdAt).toLocaleString("en-IN", {
+                          dateStyle: "medium",
+                          timeStyle: "short",
+                        })
+                      : "N/A"}
                   </p>
                 </div>
               </div>
@@ -447,15 +542,93 @@ export default function OrdersPage() {
               )}
             </div>
 
+            {detailsError && (
+              <div className="mt-4 flex items-center justify-between rounded-2xl bg-rose-50 p-3 text-xs font-semibold text-rose-700 border border-rose-200">
+                <div className="flex items-center gap-2">
+                  <AlertCircle size={15} />
+                  {detailsError}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => fetchAndOpenOrder(selectedOrder._id || selectedOrder.orderNumber, selectedOrder)}
+                  className="rounded-lg bg-rose-100 px-2.5 py-1 text-rose-800 hover:bg-rose-200 transition"
+                >
+                  Retry
+                </button>
+              </div>
+            )}
+
+            {/* ============================================================ */}
+            {/* THREE CORE FIGURES TOGETHER (FOR NON-TECHNICAL ADMIN)        */}
+            {/* ============================================================ */}
+            {(() => {
+              const collected = isOrderCollected(selectedOrder);
+              const productVal = Number(selectedOrder.subtotal || 0);
+              const customerPaidVal = collected ? Number(selectedOrder.totalAmount || 0) : 0;
+              const adminFeeVal = collected ? getOrderAdminFee(selectedOrder) : 0;
+
+              return (
+                <div className="mt-6 rounded-2xl border-2 border-[#DA9B26]/30 bg-gradient-to-br from-[#FFFDF9] via-white to-[#FAF6F0] p-4 sm:p-5 shadow-xs">
+                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#5C0F17] mb-3">
+                    Order Financial Summary At A Glance
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    {/* A. Product Value */}
+                    <div className="rounded-xl border border-neutral-200 bg-white p-3.5 shadow-xs">
+                      <span className="text-[10px] font-bold uppercase text-neutral-400 block">
+                        A. Product Value
+                      </span>
+                      <span className="text-base font-black text-neutral-900 font-mono mt-0.5 block">
+                        ₹{productVal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                      </span>
+                      <span className="text-[10px] text-neutral-500 font-medium">
+                        Original selling price of products
+                      </span>
+                    </div>
+
+                    {/* B. Customer Paid */}
+                    <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 p-3.5 shadow-xs">
+                      <span className="text-[10px] font-bold uppercase text-emerald-800 block">
+                        B. Customer Paid
+                      </span>
+                      <span className="text-base font-black text-emerald-700 font-mono mt-0.5 block">
+                        {collected ? `₹${customerPaidVal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}` : "₹0.00"}
+                      </span>
+                      <span className={`text-[10px] font-semibold ${collected ? "text-emerald-700" : "text-amber-700"}`}>
+                        {collected
+                          ? "✓ Verified received from customer"
+                          : selectedOrder.paymentMethod === "cod"
+                          ? "Pending COD delivery"
+                          : "Payment pending/failed"}
+                      </span>
+                    </div>
+
+                    {/* C. Admin Fee Earnings */}
+                    <div className="rounded-xl border border-[#DA9B26]/40 bg-[#FFFDF9] p-3.5 shadow-xs">
+                      <span className="text-[10px] font-bold uppercase text-[#5C0F17] block">
+                        C. Admin Fee Earnings
+                      </span>
+                      <span className="text-base font-black text-[#5C0F17] font-mono mt-0.5 block">
+                        ₹{adminFeeVal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                      </span>
+                      <span className="text-[10px] text-neutral-500 font-medium">
+                        {collected ? "Platform fee earned by business" : "Earned only once order is paid/delivered"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+
             {/* Customer & Shipping Details Grid */}
-            <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
               {/* Customer Info Card */}
               <div className="rounded-2xl border border-neutral-200/80 bg-neutral-50/60 p-4 text-xs space-y-2">
                 <div className="flex items-center gap-1.5 font-bold text-neutral-800">
                   <User size={15} className="text-[#5C0F17]" /> Customer Profile
                 </div>
                 <div className="space-y-1 text-neutral-600">
-                  <p><span className="text-neutral-400">Name:</span> <b className="text-neutral-800">{selectedOrder.customerDetails?.name || "N/A"}</b></p>
+                  <p><span className="text-neutral-400">Name:</span> <b className="text-neutral-800">{selectedOrder.customerDetails?.name || "Customer"}</b></p>
                   <p><span className="text-neutral-400">Email:</span> {selectedOrder.customerDetails?.email || "N/A"}</p>
                   <p><span className="text-neutral-400">Phone:</span> {selectedOrder.customerDetails?.phone || "N/A"}</p>
                   <p className="font-mono text-[11px] text-neutral-400">
@@ -470,10 +643,11 @@ export default function OrdersPage() {
                   <MapPin size={15} className="text-[#5C0F17]" /> Delivery Address
                 </div>
                 <div className="text-neutral-600 space-y-1">
-                  <p className="font-bold text-neutral-800">{selectedOrder.customerDetails?.name}</p>
-                  <p>{selectedOrder.shippingAddress?.street}</p>
+                  <p className="font-bold text-neutral-800">{selectedOrder.customerDetails?.name || "Customer"}</p>
+                  <p>{selectedOrder.shippingAddress?.street || "No street address"}</p>
                   <p>
-                    {selectedOrder.shippingAddress?.city}, {selectedOrder.shippingAddress?.state} - {selectedOrder.shippingAddress?.postalCode}
+                    {selectedOrder.shippingAddress?.city || "N/A"}, {selectedOrder.shippingAddress?.state || "N/A"}
+                    {selectedOrder.shippingAddress?.postalCode ? ` - ${selectedOrder.shippingAddress.postalCode}` : ""}
                   </p>
                   <p className="text-neutral-400">{selectedOrder.shippingAddress?.country || "India"}</p>
                 </div>
@@ -483,25 +657,25 @@ export default function OrdersPage() {
             {/* Payment & Transaction Info */}
             <div className="mt-4 rounded-2xl border border-neutral-200/80 bg-neutral-50/60 p-4 text-xs space-y-2">
               <div className="flex items-center gap-1.5 font-bold text-neutral-800">
-                <CreditCard size={15} className="text-[#5C0F17]" /> Payment & Gateway Information
+                <CreditCard size={15} className="text-[#5C0F17]" /> Payment & Gateway Details
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-neutral-600 pt-1">
                 <div>
                   <span className="text-neutral-400 block text-[11px]">Payment Method</span>
-                  <b className="uppercase text-neutral-800">{selectedOrder.paymentMethod}</b>
+                  <b className="uppercase text-neutral-800">{selectedOrder.paymentMethod || "cod"}</b>
                 </div>
                 <div>
                   <span className="text-neutral-400 block text-[11px]">Payment Status</span>
-                  <b className={selectedOrder.paymentStatus === "paid" ? "text-emerald-700 font-black" : "text-amber-700"}>
-                    {selectedOrder.paymentStatus.toUpperCase()}
+                  <b className={selectedOrder.paymentStatus === "paid" ? "text-emerald-700 font-black uppercase" : "text-amber-700 uppercase"}>
+                    {selectedOrder.paymentStatus || "pending"}
                   </b>
                 </div>
                 <div>
-                  <span className="text-neutral-400 block text-[11px]">Amount Collected</span>
+                  <span className="text-neutral-400 block text-[11px]">Collection State</span>
                   <b className="font-mono text-neutral-900">
-                    {selectedOrder.paymentStatus === "paid"
-                      ? `₹${Number(selectedOrder.totalAmount).toLocaleString("en-IN")}`
-                      : "₹0.00 (Pending)"}
+                    {isOrderCollected(selectedOrder)
+                      ? `₹${Number(selectedOrder.totalAmount || 0).toLocaleString("en-IN")}`
+                      : "₹0.00 (Uncollected)"}
                   </b>
                 </div>
 
@@ -533,12 +707,18 @@ export default function OrdersPage() {
                   const itemImg = resolveImageUrl(
                     item.image || (item.product && item.product.images && item.product.images[0]) || ""
                   );
+                  const unitPrice = Number(item.price || 0);
+                  const qty = Number(item.quantity || 1);
+                  const itemSubtotal = unitPrice * qty;
+                  const discount = Number(item.allocatedDiscount || 0);
+                  const finalItemAmount = Math.max(0, itemSubtotal - discount);
+
                   return (
                     <div key={idx} className="flex items-center gap-4 py-3">
                       {itemImg ? (
                         <img
                           src={itemImg}
-                          alt={item.name}
+                          alt={item.name || "Product"}
                           className="h-12 w-12 rounded-xl object-cover bg-neutral-100 border border-neutral-200/60"
                         />
                       ) : (
@@ -547,18 +727,18 @@ export default function OrdersPage() {
                         </div>
                       )}
                       <div className="min-w-0 flex-1">
-                        <p className="text-xs font-bold text-neutral-800">{item.name}</p>
+                        <p className="text-xs font-bold text-neutral-800">{item.name || "Product"}</p>
                         <p className="text-[11px] text-neutral-400">
-                          Qty: {item.quantity} × ₹{Number(item.price).toLocaleString("en-IN")}
+                          Unit: ₹{unitPrice.toLocaleString("en-IN")} × Qty: {qty} = ₹{itemSubtotal.toLocaleString("en-IN")}
                         </p>
-                        {item.allocatedDiscount > 0 && (
+                        {discount > 0 && (
                           <p className="text-[10px] text-rose-600 font-semibold">
-                            Coupon discount applied: -₹{item.allocatedDiscount}
+                            Coupon discount applied: -₹{discount.toLocaleString("en-IN")}
                           </p>
                         )}
                       </div>
                       <div className="text-right text-xs font-bold text-neutral-900 font-mono">
-                        ₹{Number(item.price * item.quantity).toLocaleString("en-IN")}
+                        ₹{finalItemAmount.toLocaleString("en-IN")}
                       </div>
                     </div>
                   );
@@ -569,41 +749,44 @@ export default function OrdersPage() {
             {/* Complete Itemized Financial Breakdown */}
             <div className="mt-6 rounded-2xl bg-neutral-50/80 border border-neutral-200/80 p-5 text-xs space-y-2.5">
               <h4 className="font-bold text-neutral-900 uppercase tracking-wider text-[11px] mb-2 flex items-center gap-1.5">
-                <Receipt size={14} className="text-[#DA9B26]" /> Authoritative Financial Breakdown
+                <Receipt size={14} className="text-[#DA9B26]" /> Complete Authoritative Financial Breakdown
               </h4>
 
+              {/* 1. Original Product Value */}
               <div className="flex justify-between text-neutral-600">
-                <span>Product Selling Subtotal</span>
+                <span>1. Original Product Value (Subtotal)</span>
                 <span className="font-mono">₹{Number(selectedOrder.subtotal || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
               </div>
 
+              {/* 2. Discount Applied */}
               {selectedOrder.coupon?.discount > 0 && (
                 <div className="flex justify-between text-rose-600 font-semibold">
                   <span className="flex items-center gap-1">
-                    <Percent size={12} /> Coupon Discount ({selectedOrder.coupon?.code || "APPLIED"})
+                    <Percent size={12} /> 2. Discount Applied ({selectedOrder.coupon?.code || "COUPON"})
                   </span>
                   <span className="font-mono">-₹{Number(selectedOrder.coupon.discount).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
                 </div>
               )}
 
-              {selectedOrder.discountedSubtotal !== undefined && selectedOrder.discountedSubtotal !== selectedOrder.subtotal && (
-                <div className="flex justify-between text-neutral-500 text-[11px]">
-                  <span>Discounted Subtotal</span>
-                  <span className="font-mono">₹{Number(selectedOrder.discountedSubtotal).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
-                </div>
-              )}
+              {/* 3. Discounted Product Value */}
+              <div className="flex justify-between text-neutral-500 text-[11px]">
+                <span>3. Discounted Product Value</span>
+                <span className="font-mono">₹{Number(selectedOrder.discountedSubtotal || selectedOrder.subtotal || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
+              </div>
 
+              {/* 4. Tax Amount */}
               <div className="flex justify-between text-neutral-600">
-                <span>Taxes & GST Collected</span>
+                <span>4. Taxes & GST Collected</span>
                 <span className="font-mono">₹{Number(selectedOrder.taxAmount || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
               </div>
 
+              {/* 5. Platform Fee */}
               <div className="flex justify-between text-neutral-600">
-                <span>Platform Fee</span>
+                <span>5. Platform Fee</span>
                 <span className="font-mono">₹{Number(selectedOrder.platformFee || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
               </div>
 
-              {/* Detailed chargesBreakdown if any */}
+              {/* 6. Additional Charges */}
               {Array.isArray(selectedOrder.chargesBreakdown) && selectedOrder.chargesBreakdown.length > 0 && (
                 <div className="pl-3 py-1 border-l-2 border-neutral-200 space-y-1 text-[11px] text-neutral-500">
                   {selectedOrder.chargesBreakdown.map((charge, cIdx) => (
@@ -615,26 +798,39 @@ export default function OrdersPage() {
                 </div>
               )}
 
+              {/* 7. Shipping Fee */}
               <div className="flex justify-between text-neutral-600">
-                <span>Shipping Delivery Fee</span>
+                <span>7. Shipping Fee</span>
                 <span className="font-mono">
                   {Number(selectedOrder.shippingFee || 0) === 0 ? "FREE" : `₹${Number(selectedOrder.shippingFee).toLocaleString("en-IN", { minimumFractionDigits: 2 })}`}
                 </span>
               </div>
 
+              {/* 8. Final Customer Payable Amount */}
               <div className="flex justify-between border-t border-neutral-200 pt-3 text-sm font-black text-neutral-900">
-                <span>Total Payable Amount</span>
+                <span>8. Final Customer Payable Amount</span>
                 <span className="font-mono text-base text-[#5C0F17]">
                   ₹{Number(selectedOrder.totalAmount || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                 </span>
               </div>
 
+              {/* 9. Customer Paid Amount */}
               <div className="flex justify-between pt-1 text-xs font-bold">
-                <span className="text-neutral-500">Amount Paid / Collected</span>
-                <span className={`font-mono ${selectedOrder.paymentStatus === "paid" ? "text-emerald-700 font-black" : "text-amber-700"}`}>
-                  {selectedOrder.paymentStatus === "paid"
-                    ? `₹${Number(selectedOrder.totalAmount).toLocaleString("en-IN", { minimumFractionDigits: 2 })}`
-                    : "₹0.00 (Pending)"}
+                <span className="text-neutral-600">9. Customer Paid Amount</span>
+                <span className={`font-mono ${isOrderPaidAndCollected(selectedOrder) ? "text-emerald-700 font-black" : "text-amber-700"}`}>
+                  {isOrderPaidAndCollected(selectedOrder)
+                    ? `₹${Number(selectedOrder.totalAmount || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}`
+                    : "₹0.00 (Uncollected / Pending)"}
+                </span>
+              </div>
+
+              {/* 10. Admin Fee Earnings */}
+              <div className="flex justify-between pt-1 text-xs font-bold text-[#5C0F17] bg-[#5C0F17]/5 p-2 rounded-xl border border-[#DA9B26]/30">
+                <span>10. Business Admin Fee Earnings</span>
+                <span className="font-mono font-black">
+                  ₹{isOrderPaidAndCollected(selectedOrder)
+                    ? getOrderAdminFee(selectedOrder).toLocaleString("en-IN", { minimumFractionDigits: 2 })
+                    : "0.00"}
                 </span>
               </div>
             </div>
@@ -644,7 +840,7 @@ export default function OrdersPage() {
               <div className="flex items-center gap-2">
                 <span className="text-xs font-bold text-neutral-600">Update Order Status:</span>
                 <select
-                  value={selectedOrder.orderStatus}
+                  value={selectedOrder.orderStatus || "Pending"}
                   onChange={(e) => handleStatusChange(selectedOrder._id, e.target.value)}
                   className={`rounded-xl border px-3 py-1.5 text-xs font-bold outline-none shadow-xs ${getStatusBadge(
                     selectedOrder.orderStatus
@@ -659,10 +855,10 @@ export default function OrdersPage() {
 
               <button
                 type="button"
-                onClick={() => setSelectedOrder(null)}
+                onClick={handleCloseOrder}
                 className="rounded-xl bg-neutral-900 px-6 py-2 text-xs font-bold text-white hover:bg-neutral-800 transition"
               >
-                Close
+                Close Details
               </button>
             </div>
           </div>

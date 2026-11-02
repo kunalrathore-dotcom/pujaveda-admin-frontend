@@ -18,23 +18,27 @@ import {
   CheckCircle2,
   XCircle,
   Sparkles,
+  ShieldAlert,
+  Coins,
 } from "lucide-react";
 import { earningsService } from "../services/earningsService";
 
 export default function EarningsPage() {
   // --- 1. Summary Cards State ---
   const [summary, setSummary] = useState({
-    totalCollected: 0,
-    productSubtotal: 0,
-    discountGiven: 0,
+    productValue: 0,
+    customerPaid: 0,
+    adminFeeEarnings: 0,
     taxesCollected: 0,
     platformFee: 0,
     shippingCollected: 0,
+    discountGiven: 0,
     pendingAmount: 0,
     totalOrders: 0,
-    paidOrdersCount: 0,
+    collectedOrdersCount: 0,
     pendingOrdersCount: 0,
     failedOrdersCount: 0,
+    cancelledOrdersCount: 0,
   });
   const [summaryLoading, setSummaryLoading] = useState(true);
   const [summaryError, setSummaryError] = useState(null);
@@ -56,15 +60,8 @@ export default function EarningsPage() {
 
   // --- 3. Earnings Analytics Chart State ---
   const [chartMode, setChartMode] = useState("day"); // 'day' | 'month' | 'year'
-  const [chartMetric, setChartMetric] = useState("totalCollected"); // 'totalCollected' | 'productRevenue' | 'platformFee'
-  const todayStr = useMemo(() => {
-    const now = new Date();
-    const y = now.getFullYear();
-    const m = String(now.getMonth() + 1).padStart(2, "0");
-    const d = String(now.getDate()).padStart(2, "0");
-    return `${y}-${m}-${d}`;
-  }, []);
-  const [chartDate, setChartDate] = useState("2026-10-31"); // Default to recent active store date or today
+  const [chartMetric, setChartMetric] = useState("totalCollected"); // 'totalCollected' | 'adminFeeEarnings' | 'productRevenue' | 'platformFee'
+  const [chartDate, setChartDate] = useState("2026-10-31");
   const [chartData, setChartData] = useState({
     points: [],
     hasData: false,
@@ -141,7 +138,6 @@ export default function EarningsPage() {
     }
   };
 
-  // Initial and reactive effects
   useEffect(() => {
     fetchSummary();
   }, []);
@@ -154,14 +150,12 @@ export default function EarningsPage() {
     fetchChart();
   }, [chartMode, chartDate, chartMetric]);
 
-  // Search submission
   const handleSearchSubmit = (e) => {
     e.preventDefault();
     setPage(1);
     fetchOrders();
   };
 
-  // Filter application for Summary + Orders
   const handleApplyDateFilters = (e) => {
     e.preventDefault();
     setPage(1);
@@ -179,9 +173,9 @@ export default function EarningsPage() {
     fetchSummary("", "");
   };
 
-  // Status badge styling helpers
-  const getPaymentStatusBadge = (status) => {
-    switch (status) {
+  const getPaymentStatusBadge = (status = "pending") => {
+    const s = String(status).toLowerCase();
+    switch (s) {
       case "paid":
         return "bg-emerald-100 text-emerald-800 border-emerald-200";
       case "failed":
@@ -191,7 +185,7 @@ export default function EarningsPage() {
     }
   };
 
-  const getOrderStatusBadge = (status) => {
+  const getOrderStatusBadge = (status = "Pending") => {
     switch (status) {
       case "Delivered":
         return "bg-emerald-50 text-emerald-700 border-emerald-200";
@@ -204,17 +198,16 @@ export default function EarningsPage() {
     }
   };
 
-  // Chart Max value computation
   const maxChartValue = useMemo(() => {
     if (!chartData.points || chartData.points.length === 0) return 100;
     const maxVal = Math.max(...chartData.points.map((p) => p.value || 0));
-    return maxVal > 0 ? maxVal * 1.15 : 100; // 15% headroom
+    return maxVal > 0 ? maxVal * 1.15 : 100;
   }, [chartData.points]);
 
   return (
     <div className="space-y-8 pb-12">
       {/* ============================================================ */}
-      {/* 1. Header & Date Range Filter Filter Bar                    */}
+      {/* Header & Filter Bar                                          */}
       {/* ============================================================ */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
@@ -225,7 +218,7 @@ export default function EarningsPage() {
             <h1 className="text-2xl font-black text-neutral-900 tracking-tight">Earnings</h1>
           </div>
           <p className="mt-1 text-xs text-neutral-500 font-medium">
-            Real-time financial collections, fee breakdowns, and store analytics directly aggregated from MongoDB.
+            Clear, authoritative financial breakdown. Product Value, Customer Paid, and Business Fee Earnings aggregated directly from MongoDB.
           </p>
         </div>
 
@@ -287,7 +280,7 @@ export default function EarningsPage() {
           </div>
 
           <div className="text-[11px] font-medium text-neutral-400">
-            {summary.totalOrders} total order(s) found in selected range
+            {summary.totalOrders} total order(s) · {summary.collectedOrdersCount} collected · {summary.pendingOrdersCount} pending
           </div>
         </form>
       </div>
@@ -300,170 +293,167 @@ export default function EarningsPage() {
       )}
 
       {/* ============================================================ */}
-      {/* 2. Earnings Summary Cards                                    */}
+      {/* 1. PRIMARY THREE FIGURES TOGETHER (FOR NON-TECHNICAL ADMIN) */}
       {/* ============================================================ */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-        {/* Card 1: Total Collected */}
-        <div className="rounded-3xl border border-[#DA9B26]/30 bg-gradient-to-br from-[#FFFDF9] to-[#FAF6F0] p-5 shadow-xs relative overflow-hidden">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-black uppercase tracking-wider text-[#5C0F17]">
-              Total Collected
-            </span>
-            <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#5C0F17] text-[#FAF5ED] shadow-xs">
-              <IndianRupee size={15} />
-            </span>
-          </div>
-          <div className="mt-3">
-            <div className="text-xl font-black text-[#2D0A10]">
-              {summaryLoading ? (
-                <div className="h-6 w-24 animate-pulse rounded bg-neutral-200" />
-              ) : (
-                `₹${summary.totalCollected.toLocaleString("en-IN", { minimumFractionDigits: 2 })}`
-              )}
+      <div className="space-y-3">
+        <div className="flex items-center gap-2 px-1">
+          <Sparkles size={15} className="text-[#DA9B26]" />
+          <h2 className="text-xs font-black uppercase tracking-[0.2em] text-[#5C0F17]">
+            Core Financial Summary (Client Overview)
+          </h2>
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          {/* A. Product Value */}
+          <div className="rounded-3xl border-2 border-neutral-200 bg-white p-6 shadow-xs relative overflow-hidden">
+            <div className="flex items-center justify-between">
+              <div>
+                <span className="text-[11px] font-black uppercase tracking-wider text-neutral-500 block">
+                  A. Product Value
+                </span>
+                <span className="text-[10px] text-neutral-400">Original Selling Value (Subtotal)</span>
+              </div>
+              <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-blue-50 text-blue-700">
+                <ShoppingBag size={18} />
+              </span>
             </div>
-            <p className="mt-1 text-[11px] font-semibold text-emerald-700">
-              {summary.paidOrdersCount} order(s) confirmed paid
-            </p>
-            {summary.pendingAmount > 0 && (
-              <p className="text-[10px] text-amber-700 font-medium">
-                ₹{summary.pendingAmount.toLocaleString("en-IN")} pending collection
+            <div className="mt-4">
+              <div className="text-2xl font-black text-neutral-900 font-mono">
+                {summaryLoading ? (
+                  <div className="h-7 w-28 animate-pulse rounded bg-neutral-200" />
+                ) : (
+                  `₹${summary.productValue.toLocaleString("en-IN", { minimumFractionDigits: 2 })}`
+                )}
+              </div>
+              <p className="mt-2 text-xs text-neutral-500 font-medium">
+                Total original price of products in orders before discounts or fees. Not product purchase cost.
               </p>
-            )}
-          </div>
-        </div>
-
-        {/* Card 2: Product Subtotal */}
-        <div className="rounded-3xl border border-neutral-200/80 bg-white p-5 shadow-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-black uppercase tracking-wider text-neutral-500">
-              Product Subtotal
-            </span>
-            <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-blue-50 text-blue-700">
-              <ShoppingBag size={15} />
-            </span>
-          </div>
-          <div className="mt-3">
-            <div className="text-xl font-black text-neutral-900">
-              {summaryLoading ? (
-                <div className="h-6 w-24 animate-pulse rounded bg-neutral-200" />
-              ) : (
-                `₹${summary.productSubtotal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}`
-              )}
             </div>
-            <p className="mt-1 text-[11px] text-neutral-400 font-medium">
-              Selling price before tax & fees
-            </p>
           </div>
-        </div>
 
-        {/* Card 3: Discount Given */}
-        <div className="rounded-3xl border border-neutral-200/80 bg-white p-5 shadow-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-black uppercase tracking-wider text-neutral-500">
-              Discount Given
-            </span>
-            <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-rose-50 text-rose-700">
-              <Percent size={15} />
-            </span>
-          </div>
-          <div className="mt-3">
-            <div className="text-xl font-black text-neutral-900">
-              {summaryLoading ? (
-                <div className="h-6 w-24 animate-pulse rounded bg-neutral-200" />
-              ) : (
-                `₹${summary.discountGiven.toLocaleString("en-IN", { minimumFractionDigits: 2 })}`
-              )}
+          {/* B. Customer Paid */}
+          <div className="rounded-3xl border-2 border-emerald-300 bg-gradient-to-br from-emerald-50/60 to-white p-6 shadow-xs relative overflow-hidden">
+            <div className="flex items-center justify-between">
+              <div>
+                <span className="text-[11px] font-black uppercase tracking-wider text-emerald-800 block">
+                  B. Customer Paid
+                </span>
+                <span className="text-[10px] text-emerald-600 font-semibold">Actual Money Collected</span>
+              </div>
+              <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-emerald-600 text-white shadow-xs">
+                <CheckCircle2 size={18} />
+              </span>
             </div>
-            <p className="mt-1 text-[11px] text-neutral-400 font-medium">
-              Applied coupon discounts
-            </p>
+            <div className="mt-4">
+              <div className="text-2xl font-black text-emerald-800 font-mono">
+                {summaryLoading ? (
+                  <div className="h-7 w-28 animate-pulse rounded bg-neutral-200" />
+                ) : (
+                  `₹${summary.customerPaid.toLocaleString("en-IN", { minimumFractionDigits: 2 })}`
+                )}
+              </div>
+              <p className="mt-2 text-xs font-semibold text-emerald-700">
+                {summary.collectedOrdersCount} order(s) paid & collected.
+                {summary.pendingAmount > 0 && (
+                  <span className="block text-[11px] font-normal text-amber-700 mt-0.5">
+                    (₹{summary.pendingAmount.toLocaleString("en-IN")} pending in {summary.pendingOrdersCount} uncollected / COD orders)
+                  </span>
+                )}
+              </p>
+            </div>
           </div>
-        </div>
 
-        {/* Card 4: Taxes Collected */}
-        <div className="rounded-3xl border border-neutral-200/80 bg-white p-5 shadow-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-black uppercase tracking-wider text-neutral-500">
-              Taxes Collected
-            </span>
-            <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-violet-50 text-violet-700">
-              <Receipt size={15} />
-            </span>
-          </div>
-          <div className="mt-3">
-            <div className="text-xl font-black text-neutral-900">
-              {summaryLoading ? (
-                <div className="h-6 w-24 animate-pulse rounded bg-neutral-200" />
-              ) : (
-                `₹${summary.taxesCollected.toLocaleString("en-IN", { minimumFractionDigits: 2 })}`
-              )}
+          {/* C. Admin Fee Earnings */}
+          <div className="rounded-3xl border-2 border-[#DA9B26]/60 bg-gradient-to-br from-[#FFFDF9] via-white to-[#FAF6F0] p-6 shadow-xs relative overflow-hidden">
+            <div className="flex items-center justify-between">
+              <div>
+                <span className="text-[11px] font-black uppercase tracking-wider text-[#5C0F17] block">
+                  C. Admin Fee Earnings
+                </span>
+                <span className="text-[10px] text-[#DA9B26] font-bold">Business Fee Income</span>
+              </div>
+              <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#5C0F17] text-[#DA9B26] shadow-xs">
+                <TrendingUp size={18} />
+              </span>
             </div>
-            <p className="mt-1 text-[11px] text-neutral-400 font-medium">
-              GST collected on orders
-            </p>
-          </div>
-        </div>
-
-        {/* Card 5: Platform Fee */}
-        <div className="rounded-3xl border border-neutral-200/80 bg-white p-5 shadow-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-black uppercase tracking-wider text-neutral-500">
-              Platform Fee
-            </span>
-            <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-amber-50 text-amber-700">
-              <TrendingUp size={15} />
-            </span>
-          </div>
-          <div className="mt-3">
-            <div className="text-xl font-black text-neutral-900">
-              {summaryLoading ? (
-                <div className="h-6 w-24 animate-pulse rounded bg-neutral-200" />
-              ) : (
-                `₹${summary.platformFee.toLocaleString("en-IN", { minimumFractionDigits: 2 })}`
-              )}
+            <div className="mt-4">
+              <div className="text-2xl font-black text-[#5C0F17] font-mono">
+                {summaryLoading ? (
+                  <div className="h-7 w-28 animate-pulse rounded bg-neutral-200" />
+                ) : (
+                  `₹${summary.adminFeeEarnings.toLocaleString("en-IN", { minimumFractionDigits: 2 })}`
+                )}
+              </div>
+              <p className="mt-2 text-xs text-neutral-600 font-medium">
+                Platform fee & service charges earned on collected orders. Strictly excludes taxes and shipping.
+              </p>
             </div>
-            <p className="mt-1 text-[11px] text-neutral-400 font-medium">
-              Pujaveda platform charge
-            </p>
-          </div>
-        </div>
-
-        {/* Card 6: Shipping Collected */}
-        <div className="rounded-3xl border border-neutral-200/80 bg-white p-5 shadow-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-black uppercase tracking-wider text-neutral-500">
-              Shipping Collected
-            </span>
-            <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-teal-50 text-teal-700">
-              <Truck size={15} />
-            </span>
-          </div>
-          <div className="mt-3">
-            <div className="text-xl font-black text-neutral-900">
-              {summaryLoading ? (
-                <div className="h-6 w-24 animate-pulse rounded bg-neutral-200" />
-              ) : (
-                `₹${summary.shippingCollected.toLocaleString("en-IN", { minimumFractionDigits: 2 })}`
-              )}
-            </div>
-            <p className="mt-1 text-[11px] text-neutral-400 font-medium">
-              Customer shipping delivery fee
-            </p>
           </div>
         </div>
       </div>
 
+      {/* Secondary Detailed Cards: Taxes, Shipping, Platform Fee, Discounts */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {/* Taxes Collected */}
+        <div className="rounded-2xl border border-neutral-200/80 bg-white p-4 shadow-xs">
+          <div className="flex items-center justify-between text-neutral-500">
+            <span className="text-[10px] font-black uppercase tracking-wider">Taxes Collected (GST)</span>
+            <Receipt size={15} className="text-violet-600" />
+          </div>
+          <div className="mt-2 text-lg font-black text-neutral-900 font-mono">
+            ₹{summary.taxesCollected.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+          </div>
+          <p className="mt-1 text-[11px] text-neutral-400">Government GST on collected orders</p>
+        </div>
+
+        {/* Platform Fee */}
+        <div className="rounded-2xl border border-neutral-200/80 bg-white p-4 shadow-xs">
+          <div className="flex items-center justify-between text-neutral-500">
+            <span className="text-[10px] font-black uppercase tracking-wider">Platform Fee Component</span>
+            <TrendingUp size={15} className="text-amber-600" />
+          </div>
+          <div className="mt-2 text-lg font-black text-neutral-900 font-mono">
+            ₹{summary.platformFee.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+          </div>
+          <p className="mt-1 text-[11px] text-neutral-400">Standard 2% platform convenience fee</p>
+        </div>
+
+        {/* Shipping Collected */}
+        <div className="rounded-2xl border border-neutral-200/80 bg-white p-4 shadow-xs">
+          <div className="flex items-center justify-between text-neutral-500">
+            <span className="text-[10px] font-black uppercase tracking-wider">Shipping Collected</span>
+            <Truck size={15} className="text-teal-600" />
+          </div>
+          <div className="mt-2 text-lg font-black text-neutral-900 font-mono">
+            ₹{summary.shippingCollected.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+          </div>
+          <p className="mt-1 text-[11px] text-neutral-400">Delivery fees paid by customer</p>
+        </div>
+
+        {/* Discounts Given */}
+        <div className="rounded-2xl border border-neutral-200/80 bg-white p-4 shadow-xs">
+          <div className="flex items-center justify-between text-neutral-500">
+            <span className="text-[10px] font-black uppercase tracking-wider">Discounts Given</span>
+            <Percent size={15} className="text-rose-600" />
+          </div>
+          <div className="mt-2 text-lg font-black text-neutral-900 font-mono">
+            ₹{summary.discountGiven.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+          </div>
+          <p className="mt-1 text-[11px] text-neutral-400">Applied coupon savings</p>
+        </div>
+      </div>
+
       {/* ============================================================ */}
-      {/* 3. Recent Orders Table (Direct Financial Scanning)           */}
+      {/* 2. Recent Orders Table (Direct Financial Scanning)           */}
       {/* ============================================================ */}
       <section className="rounded-3xl border border-neutral-200/80 bg-white shadow-xs overflow-hidden">
         {/* Table Header & Controls */}
         <div className="border-b border-neutral-100 p-5 space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
             <div>
-              <h2 className="text-lg font-black text-neutral-900">Recent Orders</h2>
+              <h2 className="text-lg font-black text-neutral-900">Recent Orders (Financial Breakdown)</h2>
               <p className="text-xs text-neutral-500">
-                Direct financial breakdown per order. Real-time database records (10 orders per page).
+                Direct view of Product Value, Customer Paid, and Business Fee Earnings per order without needing to open another screen.
               </p>
             </div>
             <div className="text-xs font-bold text-neutral-600 bg-neutral-50 border border-neutral-200/70 rounded-xl px-3 py-1.5 self-start">
@@ -539,22 +529,23 @@ export default function EarningsPage() {
                 <tr>
                   <th className="px-4 py-3.5 font-bold whitespace-nowrap">Order #</th>
                   <th className="px-4 py-3.5 font-bold whitespace-nowrap">Customer</th>
-                  <th className="px-4 py-3.5 font-bold whitespace-nowrap">Order Date</th>
-                  <th className="px-4 py-3.5 font-bold whitespace-nowrap text-right">Subtotal</th>
+                  <th className="px-4 py-3.5 font-bold whitespace-nowrap">Date</th>
+                  <th className="px-4 py-3.5 font-bold whitespace-nowrap text-right bg-blue-50/40 text-blue-900">Product Value</th>
+                  <th className="px-4 py-3.5 font-bold whitespace-nowrap text-right bg-emerald-50/50 text-emerald-900">Customer Paid</th>
+                  <th className="px-4 py-3.5 font-bold whitespace-nowrap text-right bg-[#DA9B26]/10 text-[#5C0F17]">Admin Fee Earnings</th>
                   <th className="px-4 py-3.5 font-bold whitespace-nowrap text-right">Discount</th>
-                  <th className="px-4 py-3.5 font-bold whitespace-nowrap text-right">Tax</th>
+                  <th className="px-4 py-3.5 font-bold whitespace-nowrap text-right">Tax (GST)</th>
                   <th className="px-4 py-3.5 font-bold whitespace-nowrap text-right">Platform Fee</th>
-                  <th className="px-4 py-3.5 font-bold whitespace-nowrap text-right">Addl. Charges</th>
+                  <th className="px-4 py-3.5 font-bold whitespace-nowrap text-right">Addl. Fees</th>
                   <th className="px-4 py-3.5 font-bold whitespace-nowrap text-right">Shipping</th>
-                  <th className="px-4 py-3.5 font-bold whitespace-nowrap text-right">Order Total</th>
-                  <th className="px-4 py-3.5 font-bold whitespace-nowrap text-right">Amount Paid</th>
+                  <th className="px-4 py-3.5 font-bold whitespace-nowrap text-right">Customer Total</th>
                   <th className="px-4 py-3.5 font-bold whitespace-nowrap text-center">Payment Status</th>
                   <th className="px-4 py-3.5 font-bold whitespace-nowrap text-center">Order Status</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-neutral-100 font-medium">
                 {orders.map((o) => (
-                  <tr key={o._id} className="hover:bg-neutral-50/70 transition">
+                  <tr key={o._id} className="hover:bg-neutral-50/80 transition">
                     <td className="px-4 py-3 font-mono font-bold text-neutral-900 whitespace-nowrap">
                       {o.orderNumber}
                     </td>
@@ -563,37 +554,51 @@ export default function EarningsPage() {
                       <div className="text-[10px] text-neutral-400">{o.customerEmail || o.customerPhone || "N/A"}</div>
                     </td>
                     <td className="px-4 py-3 text-neutral-500 whitespace-nowrap text-[11px]">
-                      {new Date(o.orderDate).toLocaleDateString("en-IN", {
-                        day: "numeric",
-                        month: "short",
-                        year: "numeric",
-                      })}
+                      {o.orderDate
+                        ? new Date(o.orderDate).toLocaleDateString("en-IN", {
+                            day: "numeric",
+                            month: "short",
+                            year: "numeric",
+                          })
+                        : "N/A"}
                     </td>
-                    <td className="px-4 py-3 text-right font-mono text-neutral-700 whitespace-nowrap">
-                      ₹{o.subtotal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+
+                    {/* A. Product Value (Subtotal) */}
+                    <td className="px-4 py-3 text-right font-mono font-bold text-blue-900 bg-blue-50/20 whitespace-nowrap">
+                      ₹{o.productValue.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                     </td>
+
+                    {/* B. Customer Paid */}
+                    <td className="px-4 py-3 text-right font-mono font-black bg-emerald-50/30 whitespace-nowrap">
+                      <span className={o.isCollected ? "text-emerald-700" : "text-amber-700"}>
+                        {o.isCollected
+                          ? `₹${o.customerPaid.toLocaleString("en-IN", { minimumFractionDigits: 2 })}`
+                          : "₹0.00 (Unpaid)"}
+                      </span>
+                    </td>
+
+                    {/* C. Admin Fee Earnings */}
+                    <td className="px-4 py-3 text-right font-mono font-black text-[#5C0F17] bg-[#DA9B26]/10 whitespace-nowrap">
+                      ₹{o.adminFeeEarnings.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                    </td>
+
                     <td className="px-4 py-3 text-right font-mono text-rose-600 whitespace-nowrap">
                       {o.discount > 0 ? `-₹${o.discount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}` : "₹0.00"}
                     </td>
                     <td className="px-4 py-3 text-right font-mono text-neutral-700 whitespace-nowrap">
-                      ₹{o.taxAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                      ₹{o.tax.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                     </td>
                     <td className="px-4 py-3 text-right font-mono text-neutral-700 whitespace-nowrap">
                       ₹{o.platformFee.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                     </td>
                     <td className="px-4 py-3 text-right font-mono text-neutral-500 whitespace-nowrap">
-                      ₹{o.additionalCharges.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                      ₹{o.additionalEligibleFees.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                     </td>
                     <td className="px-4 py-3 text-right font-mono text-neutral-700 whitespace-nowrap">
-                      {o.shippingFee === 0 ? "FREE" : `₹${o.shippingFee.toLocaleString("en-IN", { minimumFractionDigits: 2 })}`}
+                      {o.shipping === 0 ? "FREE" : `₹${o.shipping.toLocaleString("en-IN", { minimumFractionDigits: 2 })}`}
                     </td>
-                    <td className="px-4 py-3 text-right font-mono font-black text-neutral-900 whitespace-nowrap">
-                      ₹{o.totalAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-                    </td>
-                    <td className="px-4 py-3 text-right font-mono font-black whitespace-nowrap">
-                      <span className={o.paymentStatus === "paid" ? "text-emerald-700 font-black" : "text-amber-700"}>
-                        ₹{o.amountPaid.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-                      </span>
+                    <td className="px-4 py-3 text-right font-mono font-bold text-neutral-900 whitespace-nowrap">
+                      ₹{o.customerTotal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                     </td>
                     <td className="px-4 py-3 text-center whitespace-nowrap">
                       <span
@@ -657,7 +662,7 @@ export default function EarningsPage() {
       </section>
 
       {/* ============================================================ */}
-      {/* 4. Earnings Analytics Chart Section                          */}
+      {/* 3. Earnings Analytics Chart Section                          */}
       {/* ============================================================ */}
       <section className="rounded-3xl border border-neutral-200/80 bg-white p-5 sm:p-7 shadow-xs space-y-6">
         {/* Chart Header & Controls */}
@@ -762,8 +767,9 @@ export default function EarningsPage() {
               onChange={(e) => setChartMetric(e.target.value)}
               className="rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-1.5 text-xs font-bold outline-none focus:border-[#5C0F17]"
             >
-              <option value="totalCollected">Metric: Total Collected (₹)</option>
-              <option value="productRevenue">Metric: Product Revenue (₹)</option>
+              <option value="totalCollected">Metric: Customer Paid (₹)</option>
+              <option value="adminFeeEarnings">Metric: Admin Fee Earnings (₹)</option>
+              <option value="productRevenue">Metric: Product Value (₹)</option>
               <option value="platformFee">Metric: Platform Fee (₹)</option>
             </select>
           </div>
@@ -825,7 +831,7 @@ export default function EarningsPage() {
                           <p className="font-bold text-[#DA9B26]">{pt.fullLabel}</p>
                           <p className="font-mono font-bold text-white">₹{pt.value.toLocaleString("en-IN")}</p>
                           <p className="text-[10px] text-[#FAF5ED]/80">
-                            {pt.orderCount} order(s) · {pt.paidOrderCount} paid
+                            {pt.orderCount} order(s) · {pt.paidOrderCount} collected
                           </p>
                         </div>
                       </div>
@@ -891,20 +897,20 @@ export default function EarningsPage() {
 
                 <div className="flex flex-wrap items-center gap-6 font-mono text-xs">
                   <div>
-                    <span className="text-neutral-400">Total Collected:</span>{" "}
+                    <span className="text-neutral-400">Customer Paid:</span>{" "}
                     <b className="text-emerald-700">₹{hoveredPoint.totalCollected.toLocaleString("en-IN")}</b>
                   </div>
                   <div>
-                    <span className="text-neutral-400">Product Revenue:</span>{" "}
+                    <span className="text-neutral-400">Admin Fee:</span>{" "}
+                    <b className="text-[#5C0F17]">₹{hoveredPoint.adminFeeEarnings.toLocaleString("en-IN")}</b>
+                  </div>
+                  <div>
+                    <span className="text-neutral-400">Product Value:</span>{" "}
                     <b className="text-neutral-800">₹{hoveredPoint.productRevenue.toLocaleString("en-IN")}</b>
                   </div>
                   <div>
-                    <span className="text-neutral-400">Platform Fee:</span>{" "}
-                    <b className="text-neutral-800">₹{hoveredPoint.platformFee.toLocaleString("en-IN")}</b>
-                  </div>
-                  <div>
                     <span className="text-neutral-400">Orders:</span>{" "}
-                    <b className="text-neutral-800">{hoveredPoint.orderCount} placed ({hoveredPoint.paidOrderCount} paid)</b>
+                    <b className="text-neutral-800">{hoveredPoint.orderCount} placed ({hoveredPoint.paidOrderCount} collected)</b>
                   </div>
                   {hoveredPoint.pendingAmount > 0 && (
                     <div>

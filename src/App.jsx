@@ -43,6 +43,7 @@ export default function App() {
             {/* Backward compatibility redirect for old promotions link */}
             <Route path="promotions" element={<Navigate to="/promotional-sections" replace />} />
             <Route path="orders" element={<OrdersPage />} />
+            <Route path="orders/:id" element={<OrdersPage />} />
             <Route path="earnings" element={<EarningsPage />} />
             <Route path="customers" element={<CustomersPage />} />
             <Route path="coupons" element={<CouponsPage />} />

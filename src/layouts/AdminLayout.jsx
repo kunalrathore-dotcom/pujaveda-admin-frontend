@@ -78,15 +78,15 @@ export default function AdminLayout() {
       {/* Sidebar Navigation */}
       <aside className="flex w-full flex-col bg-[#2D0A10] text-[#FAF5ED] lg:fixed lg:inset-y-0 lg:w-64 border-r border-[#3E0F16]">
         {/* Brand Header */}
-        <div className="flex h-[76px] items-center justify-center border-b border-[#3E0F16] px-4 bg-[#25080D]">
+        <div className="flex h-[76px] shrink-0 items-center justify-center border-b border-[#3E0F16] px-4 bg-[#25080D]">
           <div className="rounded-xl bg-[#FFFDF9] px-2.5 py-1.5 shadow-xs">
             <PujavedaLogo size="sm" />
           </div>
         </div>
 
-        {/* Navigation Menu */}
-        <nav className="flex gap-1 overflow-x-auto p-3 lg:flex-1 lg:flex-col lg:overflow-visible lg:p-4">
-          <div className="hidden lg:block mb-2 px-3">
+        {/* Navigation Menu with independent vertical scroll */}
+        <nav className="flex gap-1 overflow-x-auto p-2.5 lg:flex-1 lg:flex-col lg:overflow-y-auto lg:p-3">
+          <div className="hidden lg:block mb-1.5 px-3">
             <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#DA9B26]">
               Store Management
             </p>
@@ -98,14 +98,14 @@ export default function AdminLayout() {
               to={to}
               end={end}
               className={({ isActive }) =>
-                `flex shrink-0 items-center gap-3 rounded-xl px-3.5 py-3 text-xs font-bold tracking-wide transition ${
+                `flex shrink-0 items-center gap-3 rounded-xl px-3 py-2 text-xs font-bold tracking-wide transition ${
                   isActive
                     ? "bg-[#5C0F17] text-[#FFFDF9] border-l-4 border-[#DA9B26] shadow-md"
                     : "text-[#D8C7B8] hover:bg-[#3D0A10] hover:text-[#FFFDF9]"
                 }`
               }
             >
-              <Icon size={18} className="text-[#DA9B26]" />
+              <Icon size={17} className="text-[#DA9B26]" />
               {label}
             </NavLink>
           ))}

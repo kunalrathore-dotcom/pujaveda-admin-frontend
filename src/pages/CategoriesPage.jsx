@@ -19,7 +19,7 @@ import { uploadService } from "../services/uploadService";
 import { resolveImageUrl } from "../utils/imageHelper";
 
 const MIN_NAME = 2;
-const MAX_NAME = 50;
+const MAX_NAME = 60;
 
 const normalizeName = (value) =>
   value.trim().replace(/\s+/g, " ");
@@ -425,6 +425,7 @@ export default function CategoriesPage() {
             />
             <input
               value={search}
+              maxLength={100}
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Search category..."
               className={`${fieldClass} pl-9`}

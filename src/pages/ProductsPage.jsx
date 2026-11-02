@@ -50,8 +50,13 @@ const emptyForm = {
   couponIds: [],
 };
 
-const inputClass =
-  "mt-1.5 w-full rounded-xl border border-[#EEDBC5] bg-white px-3.5 py-2.5 text-sm text-[#2D1C13] outline-none transition focus:border-[#5C0F17] focus:ring-2 focus:ring-[#DA9B26]/20";
+const getInputClass = (hasError) =>
+  `mt-1.5 w-full rounded-xl border px-3.5 py-2.5 text-sm text-[#2D1C13] outline-none transition ${
+    hasError
+      ? "border-rose-500 ring-1 ring-rose-500 bg-rose-50/20 focus:border-rose-600 focus:ring-rose-500"
+      : "border-[#EEDBC5] bg-white focus:border-[#5C0F17] focus:ring-2 focus:ring-[#DA9B26]/20"
+  }`;
+const inputClass = getInputClass(false);
 
 export default function ProductsPage() {
   const [products, setProducts] = useState([]);
@@ -60,6 +65,7 @@ export default function ProductsPage() {
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [viewTab, setViewTab] = useState("active"); // "active" | "trash"
+  const [selectedIds, setSelectedIds] = useState([]);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState(emptyForm);
@@ -274,8 +280,8 @@ export default function ProductsPage() {
       nextErrors.name = "Product name is required.";
     } else if (form.name.trim().length < 2) {
       nextErrors.name = "Product name must be at least 2 characters.";
-    } else if (form.name.trim().length > 120) {
-      nextErrors.name = "Product name cannot exceed 120 characters.";
+    } else if (form.name.trim().length > 100) {
+      nextErrors.name = "Product name cannot exceed 100 characters.";
     }
 
     if (form.sku && form.sku.trim().length > 50) {
@@ -283,7 +289,11 @@ export default function ProductsPage() {
     }
 
     if (!form.categoryId) {
-      nextErrors.categoryId = "Category is required.";
+      nextErrors.categoryId = "Please select a category.";
+    }
+
+    if (!form.subcategoryId) {
+      nextErrors.subcategoryId = "Please select a subcategory.";
     }
 
     if (!form.price || Number(form.price) <= 0) {
@@ -306,8 +316,8 @@ export default function ProductsPage() {
       nextErrors.shortDescription = "Short description cannot exceed 250 characters.";
     }
 
-    if (form.description && form.description.length > 5000) {
-      nextErrors.description = "Description cannot exceed 5000 characters.";
+    if (form.description && form.description.length > 3000) {
+      nextErrors.description = "Description cannot exceed 3000 characters.";
     }
 
     // Multiple Image Validation Rule: Minimum 5 images required for published products
@@ -379,6 +389,9 @@ export default function ProductsPage() {
       await loadData();
     } catch (error) {
       console.error("Save error:", error);
+      if (error.fieldErrors) {
+        setErrors(error.fieldErrors);
+      }
       setErrorMessage(error.message || "Failed to save product.");
     } finally {
       setSaving(false);
@@ -399,6 +412,46 @@ export default function ProductsPage() {
     }
   };
 
+
+  const handleBulkTrash = async (idsToTrash) => {
+    if (!idsToTrash || idsToTrash.length === 0) return;
+    if (!window.confirm(`Move ${idsToTrash.length} product(s) to trash? (You can restore them anytime from the Trash tab)`)) return;
+
+    try {
+      setLoading(true);
+      for (const id of idsToTrash) {
+        await productService.remove(id);
+      }
+      setNotice(`${idsToTrash.length} product(s) moved to trash successfully.`);
+      setSelectedIds([]);
+      await loadData();
+    } catch (err) {
+      console.error("Bulk trash error:", err);
+      setErrorMessage(err.message || "Failed to move selected products to trash.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleBulkRestore = async (idsToRestore) => {
+    if (!idsToRestore || idsToRestore.length === 0) return;
+    if (!window.confirm(`Restore ${idsToRestore.length} product(s) back to active catalog?`)) return;
+
+    try {
+      setLoading(true);
+      for (const id of idsToRestore) {
+        await productService.restore(id);
+      }
+      setNotice(`${idsToRestore.length} product(s) restored successfully.`);
+      setSelectedIds([]);
+      await loadData();
+    } catch (err) {
+      console.error("Bulk restore error:", err);
+      setErrorMessage(err.message || "Failed to restore selected products.");
+    } finally {
+      setLoading(false);
+    }
+  };
   const handleRestore = async (id) => {
     try {
       await productService.restore(id);
@@ -449,7 +502,7 @@ export default function ProductsPage() {
         <div className="flex rounded-xl bg-[#FAF5ED] p-1 border border-[#EEDBC5]">
           <button
             type="button"
-            onClick={() => setViewTab("active")}
+            onClick={() => { setViewTab("active"); setSelectedIds([]); }}
             className={`rounded-lg px-4 py-1.5 text-xs font-bold transition ${
               viewTab === "active"
                 ? "bg-[#5C0F17] text-white shadow-xs"
@@ -460,7 +513,7 @@ export default function ProductsPage() {
           </button>
           <button
             type="button"
-            onClick={() => setViewTab("trash")}
+            onClick={() => { setViewTab("trash"); setSelectedIds([]); }}
             className={`rounded-lg px-4 py-1.5 text-xs font-bold transition flex items-center gap-1.5 ${
               viewTab === "trash"
                 ? "bg-red-700 text-white shadow-xs"
@@ -508,6 +561,72 @@ export default function ProductsPage() {
         </div>
       </div>
 
+      
+      {/* Bulk Action Controls */}
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#EEDBC5] bg-[#FAF5ED] px-4 py-2.5">
+        <div className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={filteredProducts.length > 0 && selectedIds.length === filteredProducts.length}
+            onChange={(e) => {
+              if (e.target.checked) {
+                setSelectedIds(filteredProducts.map((p) => p._id || p.id));
+              } else {
+                setSelectedIds([]);
+              }
+            }}
+            className="h-4 w-4 rounded border-[#EEDBC5] text-[#5C0F17] focus:ring-[#DA9B26]"
+          />
+          <span className="text-xs font-semibold text-[#2D1C13]">
+            {selectedIds.length > 0
+              ? `${selectedIds.length} of ${filteredProducts.length} selected`
+              : `Select All (${filteredProducts.length})`}
+          </span>
+        </div>
+
+        <div className="flex items-center gap-2">
+          {viewTab === "active" ? (
+            <>
+              <button
+                type="button"
+                disabled={selectedIds.length === 0}
+                onClick={() => handleBulkTrash(selectedIds)}
+                className="rounded-lg bg-amber-50 px-3 py-1.5 text-xs font-bold text-amber-900 border border-amber-200 hover:bg-amber-100 disabled:opacity-40 transition flex items-center gap-1.5"
+              >
+                <Trash2 size={13} /> Move Selected to Trash
+              </button>
+              <button
+                type="button"
+                disabled={filteredProducts.length === 0}
+                onClick={() => handleBulkTrash(filteredProducts.map((p) => p._id || p.id))}
+                className="rounded-lg bg-rose-50 px-3 py-1.5 text-xs font-bold text-rose-800 border border-rose-200 hover:bg-rose-100 disabled:opacity-40 transition"
+              >
+                Move All to Trash
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                type="button"
+                disabled={selectedIds.length === 0}
+                onClick={() => handleBulkRestore(selectedIds)}
+                className="rounded-lg bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-800 border border-emerald-200 hover:bg-emerald-100 disabled:opacity-40 transition flex items-center gap-1.5"
+              >
+                <RotateCcw size={13} /> Restore Selected
+              </button>
+              <button
+                type="button"
+                disabled={filteredProducts.length === 0}
+                onClick={() => handleBulkRestore(filteredProducts.map((p) => p._id || p.id))}
+                className="rounded-lg bg-emerald-700 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-800 disabled:opacity-40 transition"
+              >
+                Restore All
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+
       {/* Product Table */}
       <section className="mt-6 overflow-hidden rounded-2xl border border-[#EEDBC5] bg-[#FFFDF9] shadow-xs">
         {loading ? (
@@ -519,6 +638,9 @@ export default function ProductsPage() {
             <table className="w-full min-w-[760px] text-left text-sm">
               <thead className="bg-[#FAF5ED] text-xs uppercase tracking-wider text-[#5C0F17]">
                 <tr>
+                  <th className="w-10 px-3 py-4 text-center">
+                    <span className="sr-only">Select</span>
+                  </th>
                   <th className="px-5 py-4 font-bold">Product & Images</th>
                   <th className="px-5 py-4 font-bold">Category</th>
                   <th className="px-5 py-4 font-bold">Price</th>
@@ -536,6 +658,20 @@ export default function ProductsPage() {
 
                   return (
                     <tr key={pid} className="hover:bg-[#FFF8EE]/60 transition">
+                      <td className="w-10 px-3 py-4 text-center" onClick={(e) => e.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.includes(pid)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedIds((prev) => [...prev, pid]);
+                            } else {
+                              setSelectedIds((prev) => prev.filter((id) => id !== pid));
+                            }
+                          }}
+                          className="h-4 w-4 rounded border-[#EEDBC5] text-[#5C0F17] focus:ring-[#DA9B26]"
+                        />
+                      </td>
                       <td className="px-5 py-4">
                         <div className="flex items-center gap-3">
                           <div className="relative h-12 w-12 shrink-0 rounded-xl bg-[#FAF5ED] border border-[#EEDBC5] overflow-hidden">
@@ -682,15 +818,15 @@ export default function ProductsPage() {
                     <label className="text-xs font-bold uppercase tracking-wider text-[#5C0F17]">
                       Product Name *
                     </label>
-                    <span className="text-[10px] text-[#2D1C13]/50">{form.name.length}/120</span>
+                    <span className="text-[10px] text-[#2D1C13]/50">{form.name.length}/100</span>
                   </div>
                   <input
                     required
                     minLength={2}
-                    maxLength={120}
+                    maxLength={100}
                     value={form.name}
                     onChange={(e) => updateField("name", e.target.value)}
-                    className={inputClass}
+                    className={getInputClass(Boolean(errors.name))}
                     placeholder="e.g. Pure Brass Akhand Diya (Large)"
                   />
                   {errors.name && <p className="mt-1 text-xs text-red-600">{errors.name}</p>}
@@ -707,7 +843,7 @@ export default function ProductsPage() {
                     maxLength={50}
                     value={form.sku}
                     onChange={(e) => updateField("sku", e.target.value.toUpperCase())}
-                    className={inputClass}
+                    className={getInputClass(Boolean(errors.sku))}
                     placeholder="e.g. BRASS-DIYA-01"
                   />
                   {errors.sku && <p className="mt-1 text-xs text-red-600">{errors.sku}</p>}
@@ -726,7 +862,7 @@ export default function ProductsPage() {
                       updateField("categoryId", e.target.value);
                       updateField("subcategoryId", "");
                     }}
-                    className={inputClass}
+                    className={getInputClass(Boolean(errors.categoryId))}
                   >
                     <option value="">Select category</option>
                     {categories.map((c) => (
@@ -740,20 +876,23 @@ export default function ProductsPage() {
 
                 <div>
                   <label className="text-xs font-bold uppercase tracking-wider text-[#5C0F17]">
-                    Subcategory
+                    Subcategory *
                   </label>
                   <select
                     value={form.subcategoryId}
                     onChange={(e) => updateField("subcategoryId", e.target.value)}
-                    className={inputClass}
+                    className={getInputClass(Boolean(errors.subcategoryId))}
                   >
                     <option value="">Select subcategory</option>
-                    {(selectedCategory?.subcategories || []).map((s) => (
-                      <option key={s._id || s.slug} value={s.slug || s.id}>
-                        {s.name}
+                    {(selectedCategory?.subcategories || []).map((sub) => (
+                      <option key={sub._id || sub.slug || sub.id} value={sub.slug || sub.id}>
+                        {sub.name}
                       </option>
                     ))}
                   </select>
+                  {errors.subcategoryId && (
+                    <p className="mt-1 text-xs text-red-600 font-medium">{errors.subcategoryId}</p>
+                  )}
                 </div>
               </div>
 
@@ -771,7 +910,7 @@ export default function ProductsPage() {
                     step="0.01"
                     value={form.price}
                     onChange={(e) => updateField("price", e.target.value)}
-                    className={inputClass}
+                    className={getInputClass(Boolean(errors.price))}
                   />
                   {errors.price && <p className="mt-1 text-xs text-red-600">{errors.price}</p>}
                 </div>
@@ -805,7 +944,7 @@ export default function ProductsPage() {
                     max="100000"
                     value={form.stock}
                     onChange={(e) => updateField("stock", e.target.value)}
-                    className={inputClass}
+                    className={getInputClass(Boolean(errors.stock))}
                   />
                   {errors.stock && <p className="mt-1 text-xs text-red-600">{errors.stock}</p>}
                 </div>
@@ -1022,7 +1161,7 @@ export default function ProductsPage() {
                   maxLength={250}
                   value={form.shortDescription}
                   onChange={(e) => updateField("shortDescription", e.target.value)}
-                  className={inputClass}
+                  className={getInputClass(Boolean(errors.shortDescription))}
                   placeholder="Brief one-sentence summary for previews and social cards..."
                 />
               </div>
@@ -1033,15 +1172,15 @@ export default function ProductsPage() {
                     Full Description
                   </label>
                   <span className="text-[10px] text-[#2D1C13]/50">
-                    {form.description.length}/5000
+                    {form.description.length}/3000
                   </span>
                 </div>
                 <textarea
                   rows={4}
-                  maxLength={5000}
+                  maxLength={3000}
                   value={form.description}
                   onChange={(e) => updateField("description", e.target.value)}
-                  className={inputClass}
+                  className={getInputClass(Boolean(errors.description))}
                   placeholder="Detailed Vedic significance, usage guidelines, and features..."
                 />
               </div>

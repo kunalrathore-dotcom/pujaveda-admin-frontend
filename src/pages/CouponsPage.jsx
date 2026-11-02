@@ -430,6 +430,7 @@ export default function CouponsPage() {
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-400" size={16} />
             <input
               type="text"
+              maxLength={100}
               placeholder="Search coupon code or description..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -736,6 +737,7 @@ export default function CouponsPage() {
                             />
                             <input
                               type="search"
+                              maxLength={100}
                               value={productSearch}
                               onChange={(e) => setProductSearch(e.target.value)}
                               placeholder="Search products by name..."

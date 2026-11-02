@@ -448,7 +448,7 @@ export default function OrdersPage() {
                       <td className="px-5 py-4 text-right" onClick={(e) => e.stopPropagation()}>
                         <Link
                           to={`/orders/${order._id || order.orderNumber}`}
-                          className="inline-flex items-center gap-1 rounded-xl bg-neutral-100 px-3 py-1.5 text-xs font-bold text-neutral-700 hover:bg-[#5C0F17] hover:text-white transition"
+                          className="inline-flex items-center gap-1.5 rounded-xl border border-[#DA9B26]/30 bg-[#FAF5ED] px-3.5 py-1.5 text-xs font-bold text-[#5C0F17] shadow-xs transition hover:bg-[#5C0F17] hover:text-white hover:border-[#5C0F17]"
                         >
                           <Eye size={13} /> View
                         </Link>

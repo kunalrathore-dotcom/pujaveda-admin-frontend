@@ -26,8 +26,13 @@ const blank = {
   order: 0,
 };
 
-const fieldClass =
-  "mt-1.5 w-full rounded-xl border border-[#EEDBC5] bg-white px-3.5 py-2.5 text-sm text-[#2D1C13] outline-none transition focus:border-[#5C0F17] focus:ring-2 focus:ring-[#DA9B26]/20";
+const getFieldClass = (hasError) =>
+  `mt-1.5 w-full rounded-xl border px-3.5 py-2.5 text-sm text-[#2D1C13] outline-none transition ${
+    hasError
+      ? "border-rose-500 ring-1 ring-rose-500 bg-rose-50/20 focus:border-rose-600 focus:ring-rose-500"
+      : "border-[#EEDBC5] bg-white focus:border-[#5C0F17] focus:ring-2 focus:ring-[#DA9B26]/20"
+  }`;
+const fieldClass = getFieldClass(false);
 
 export default function BannersPage() {
   const [banners, setBanners] = useState([]);
@@ -39,6 +44,8 @@ export default function BannersPage() {
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [viewTab, setViewTab] = useState("active"); // "active" | "trash"
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [fieldErrors, setFieldErrors] = useState({});
   const fileInputRef = useRef(null);
 
   const load = async (tab = viewTab) => {
@@ -72,6 +79,7 @@ export default function BannersPage() {
         : { ...blank }
     );
     setError("");
+    setFieldErrors({});
     setNotice("");
     setFormOpen(true);
   };
@@ -114,22 +122,36 @@ export default function BannersPage() {
     setError("");
     setNotice("");
 
+    const errs = {};
     if (!form.title.trim()) {
-      setError("Banner title is required.");
-      return;
+      errs.title = "Banner title is required.";
+    } else if (form.title.trim().length > 60) {
+      errs.title = "Banner title cannot exceed 60 characters.";
     }
-    if (form.title.trim().length > 120) {
-      setError("Banner title cannot exceed 120 characters.");
-      return;
+
+    if (!form.subtitle.trim()) {
+      errs.subtitle = "Banner description is required.";
+    } else if (form.subtitle.trim().length > 160) {
+      errs.subtitle = "Banner description cannot exceed 160 characters.";
     }
-    if (form.subtitle && form.subtitle.length > 300) {
-      setError("Banner description cannot exceed 300 characters.");
-      return;
-    }
+
     if (!form.imageUrl) {
-      setError("Please select and upload a banner image.");
+      errs.imageUrl = "Please upload a desktop banner image.";
+    }
+
+    if (form.ctaText && form.ctaText.length > 30) {
+      errs.ctaText = "CTA button text cannot exceed 30 characters.";
+    }
+
+    if (form.link && form.link.length > 250) {
+      errs.link = "Link URL cannot exceed 250 characters.";
+    }
+
+    if (Object.keys(errs).length > 0) {
+      setFieldErrors(errs);
       return;
     }
+    setFieldErrors({});
 
     setSaving(true);
 
@@ -239,7 +261,7 @@ export default function BannersPage() {
       <div className="mt-6 flex rounded-xl bg-[#FAF5ED] p-1 border border-[#EEDBC5] w-fit">
         <button
           type="button"
-          onClick={() => setViewTab("active")}
+          onClick={() => { setViewTab("active"); setSelectedIds([]); }}
           className={`rounded-lg px-4 py-1.5 text-xs font-bold transition ${
             viewTab === "active"
               ? "bg-[#5C0F17] text-white shadow-xs"
@@ -250,7 +272,7 @@ export default function BannersPage() {
         </button>
         <button
           type="button"
-          onClick={() => setViewTab("trash")}
+          onClick={() => { setViewTab("trash"); setSelectedIds([]); }}
           className={`rounded-lg px-4 py-1.5 text-xs font-bold transition flex items-center gap-1.5 ${
             viewTab === "trash"
               ? "bg-red-700 text-white shadow-xs"
@@ -385,16 +407,22 @@ export default function BannersPage() {
                   <label className="text-xs font-bold uppercase tracking-wider text-[#5C0F17]">
                     Banner Title *
                   </label>
-                  <span className="text-[10px] text-[#2D1C13]/50">{form.title.length}/120</span>
+                  <span className="text-[10px] text-[#2D1C13]/50">{form.title.length}/60</span>
                 </div>
                 <input
                   required
-                  maxLength={120}
+                  maxLength={60}
                   value={form.title}
-                  onChange={(e) => setForm({ ...form, title: e.target.value })}
-                  className={fieldClass}
+                  onChange={(e) => {
+                    setForm({ ...form, title: e.target.value });
+                    if (fieldErrors.title) setFieldErrors({ ...fieldErrors, title: "" });
+                  }}
+                  className={getFieldClass(Boolean(fieldErrors.title))}
                   placeholder="e.g. Sacred Durga & Navratri Puja Samagri"
                 />
+                {fieldErrors.title && (
+                  <p className="mt-1 text-[11px] font-semibold text-rose-600">{fieldErrors.title}</p>
+                )}
               </div>
 
               <div>
@@ -403,17 +431,24 @@ export default function BannersPage() {
                     Description / Subtitle
                   </label>
                   <span className="text-[10px] text-[#2D1C13]/50">
-                    {form.subtitle.length}/300
+                    {form.subtitle.length}/160
                   </span>
                 </div>
                 <textarea
                   rows={2}
-                  maxLength={300}
+                  maxLength={160}
+                  required
                   value={form.subtitle}
-                  onChange={(e) => setForm({ ...form, subtitle: e.target.value })}
-                  className={fieldClass}
+                  onChange={(e) => {
+                    setForm({ ...form, subtitle: e.target.value });
+                    if (fieldErrors.subtitle) setFieldErrors({ ...fieldErrors, subtitle: "" });
+                  }}
+                  className={getFieldClass(Boolean(fieldErrors.subtitle))}
                   placeholder="e.g. Complete authentic puja kits blessed with holy Gangajal..."
                 />
+                {fieldErrors.subtitle && (
+                  <p className="mt-1 text-[11px] font-semibold text-rose-600">{fieldErrors.subtitle}</p>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -459,6 +494,9 @@ export default function BannersPage() {
                   <p className="mt-2 text-xs font-semibold text-[#5C0F17]">
                     Uploading image to persistent storage...
                   </p>
+                )}
+                {fieldErrors.imageUrl && (
+                  <p className="mt-1 text-[11px] font-semibold text-rose-600">{fieldErrors.imageUrl}</p>
                 )}
                 {form.imageUrl && (
                   <div className="mt-3 overflow-hidden rounded-xl border border-[#EEDBC5]">

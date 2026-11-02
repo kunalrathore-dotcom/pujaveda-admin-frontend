@@ -32,8 +32,13 @@ const blank = {
   order: 0,
 };
 
-const fieldClass =
-  "mt-1.5 w-full rounded-xl border border-[#EEDBC5] bg-white px-3.5 py-2.5 text-sm text-[#2D1C13] outline-none transition focus:border-[#5C0F17] focus:ring-2 focus:ring-[#DA9B26]/20";
+const getFieldClass = (hasError) =>
+  `mt-1.5 w-full rounded-xl border px-3.5 py-2.5 text-sm text-[#2D1C13] outline-none transition ${
+    hasError
+      ? "border-rose-500 ring-1 ring-rose-500 bg-rose-50/20 focus:border-rose-600 focus:ring-rose-500"
+      : "border-[#EEDBC5] bg-white focus:border-[#5C0F17] focus:ring-2 focus:ring-[#DA9B26]/20"
+  }`;
+const fieldClass = getFieldClass(false);
 
 export default function PromotionalSectionsPage() {
   const [cards, setCards] = useState([]);
@@ -45,6 +50,8 @@ export default function PromotionalSectionsPage() {
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [viewTab, setViewTab] = useState("active"); // "active" | "trash"
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [fieldErrors, setFieldErrors] = useState({});
   const fileInputRef = useRef(null);
 
   const load = async (tab = viewTab) => {
@@ -61,7 +68,14 @@ export default function PromotionalSectionsPage() {
     load(viewTab);
   }, [viewTab]);
 
+  const activeCount = cards.filter((c) => !c.isDeleted).length;
+  const isLimitReached = viewTab === "active" && activeCount >= 2;
+
   const openForm = (card = null) => {
+    if (!card && isLimitReached) {
+      setError("Maximum 2 promotional assets allowed. Move an existing card to trash to add another.");
+      return;
+    }
     setEditingId(card?._id || card?.id || null);
     setForm(
       card
@@ -81,6 +95,7 @@ export default function PromotionalSectionsPage() {
         : { ...blank }
     );
     setError("");
+    setFieldErrors({});
     setNotice("");
     setFormOpen(true);
   };
@@ -107,14 +122,46 @@ export default function PromotionalSectionsPage() {
 
   const handleSave = async (e) => {
     e.preventDefault();
+    const errs = {};
     if (!form.title.trim()) {
-      setError("Card title is required.");
-      return;
+      errs.title = "Card title is required.";
+    } else if (form.title.trim().length > 60) {
+      errs.title = "Card title cannot exceed 60 characters.";
     }
+
+    if (!form.pretitle.trim()) {
+      errs.pretitle = "Pretitle is required.";
+    } else if (form.pretitle.trim().length > 60) {
+      errs.pretitle = "Pretitle cannot exceed 60 characters.";
+    }
+
+    if (!form.description.trim()) {
+      errs.description = "Description is required.";
+    } else if (form.description.trim().length > 300) {
+      errs.description = "Description cannot exceed 300 characters.";
+    }
+
     if (!form.imageUrl) {
-      setError("Please upload an image for the promotional card.");
+      errs.imageUrl = "Promotional card image is required.";
+    }
+
+    if (!form.ctaText.trim()) {
+      errs.ctaText = "Button label is required.";
+    } else if (form.ctaText.trim().length > 30) {
+      errs.ctaText = "Button label cannot exceed 30 characters.";
+    }
+
+    if (!form.link.trim()) {
+      errs.link = "Destination link URL is required.";
+    } else if (form.link.trim().length > 250) {
+      errs.link = "Link URL cannot exceed 250 characters.";
+    }
+
+    if (Object.keys(errs).length > 0) {
+      setFieldErrors(errs);
       return;
     }
+    setFieldErrors({});
 
     setSaving(true);
     setError("");
@@ -206,7 +253,7 @@ export default function PromotionalSectionsPage() {
       <div className="flex rounded-xl bg-[#FAF5ED] p-1 border border-[#EEDBC5] w-fit">
         <button
           type="button"
-          onClick={() => setViewTab("active")}
+          onClick={() => { setViewTab("active"); setSelectedIds([]); }}
           className={`rounded-lg px-4 py-1.5 text-xs font-bold transition ${
             viewTab === "active"
               ? "bg-[#5C0F17] text-white shadow-xs"
@@ -217,7 +264,7 @@ export default function PromotionalSectionsPage() {
         </button>
         <button
           type="button"
-          onClick={() => setViewTab("trash")}
+          onClick={() => { setViewTab("trash"); setSelectedIds([]); }}
           className={`rounded-lg px-4 py-1.5 text-xs font-bold transition flex items-center gap-1.5 ${
             viewTab === "trash"
               ? "bg-red-700 text-white shadow-xs"
@@ -434,17 +481,23 @@ export default function PromotionalSectionsPage() {
                     <label className="block text-xs font-bold uppercase tracking-wider text-[#5C0F17]">
                       Title *
                     </label>
-                    <span className="text-[10px] text-neutral-400">{form.title.length}/100</span>
+                    <span className="text-[10px] text-neutral-400">{form.title.length}/60</span>
                   </div>
                   <input
                     type="text"
-                    maxLength={100}
+                    maxLength={60}
                     value={form.title}
-                    onChange={(e) => setForm({ ...form, title: e.target.value })}
+                    onChange={(e) => {
+                      setForm({ ...form, title: e.target.value });
+                      if (fieldErrors.title) setFieldErrors({ ...fieldErrors, title: "" });
+                    }}
                     placeholder="e.g. Mandir & Brass Puja Utensils"
                     required
-                    className={fieldClass}
+                    className={getFieldClass(Boolean(fieldErrors.title))}
                   />
+                  {fieldErrors.title && (
+                    <p className="mt-1 text-[11px] font-semibold text-rose-600">{fieldErrors.title}</p>
+                  )}
                 </div>
 
                 <div>
@@ -452,16 +505,23 @@ export default function PromotionalSectionsPage() {
                     <label className="block text-xs font-bold uppercase tracking-wider text-[#5C0F17]">
                       Pretitle / Tagline
                     </label>
-                    <span className="text-[10px] text-neutral-400">{form.pretitle.length}/50</span>
+                    <span className="text-[10px] text-neutral-400">{form.pretitle.length}/60</span>
                   </div>
                   <input
                     type="text"
-                    maxLength={50}
+                    maxLength={60}
+                    required
                     value={form.pretitle}
-                    onChange={(e) => setForm({ ...form, pretitle: e.target.value })}
+                    onChange={(e) => {
+                      setForm({ ...form, pretitle: e.target.value });
+                      if (fieldErrors.pretitle) setFieldErrors({ ...fieldErrors, pretitle: "" });
+                    }}
                     placeholder="e.g. Sacred Altar Setup"
-                    className={fieldClass}
+                    className={getFieldClass(Boolean(fieldErrors.pretitle))}
                   />
+                  {fieldErrors.pretitle && (
+                    <p className="mt-1 text-[11px] font-semibold text-rose-600">{fieldErrors.pretitle}</p>
+                  )}
                 </div>
               </div>
 
@@ -476,11 +536,18 @@ export default function PromotionalSectionsPage() {
                 <textarea
                   rows={2}
                   maxLength={300}
+                  required
                   value={form.description}
-                  onChange={(e) => setForm({ ...form, description: e.target.value })}
+                  onChange={(e) => {
+                    setForm({ ...form, description: e.target.value });
+                    if (fieldErrors.description) setFieldErrors({ ...fieldErrors, description: "" });
+                  }}
                   placeholder="Authentic brass diyas, bell (ghanti), shankh stand, and thali sets for daily morning archana."
-                  className={fieldClass}
+                  className={getFieldClass(Boolean(fieldErrors.description))}
                 />
+                {fieldErrors.description && (
+                  <p className="mt-1 text-[11px] font-semibold text-rose-600">{fieldErrors.description}</p>
+                )}
               </div>
 
               {/* CTA & Link */}
@@ -492,11 +559,18 @@ export default function PromotionalSectionsPage() {
                   <input
                     type="text"
                     maxLength={30}
+                    required
                     value={form.ctaText}
-                    onChange={(e) => setForm({ ...form, ctaText: e.target.value })}
+                    onChange={(e) => {
+                      setForm({ ...form, ctaText: e.target.value });
+                      if (fieldErrors.ctaText) setFieldErrors({ ...fieldErrors, ctaText: "" });
+                    }}
                     placeholder="Explore Essentials"
-                    className={fieldClass}
+                    className={getFieldClass(Boolean(fieldErrors.ctaText))}
                   />
+                  {fieldErrors.ctaText && (
+                    <p className="mt-1 text-[11px] font-semibold text-rose-600">{fieldErrors.ctaText}</p>
+                  )}
                 </div>
 
                 <div>
@@ -505,43 +579,36 @@ export default function PromotionalSectionsPage() {
                   </label>
                   <input
                     type="text"
+                    maxLength={250}
+                    required
                     value={form.link}
-                    onChange={(e) => setForm({ ...form, link: e.target.value })}
+                    onChange={(e) => {
+                      setForm({ ...form, link: e.target.value });
+                      if (fieldErrors.link) setFieldErrors({ ...fieldErrors, link: "" });
+                    }}
                     placeholder="/category/puja-utensils"
-                    className={fieldClass}
+                    className={getFieldClass(Boolean(fieldErrors.link))}
                   />
+                  {fieldErrors.link && (
+                    <p className="mt-1 text-[11px] font-semibold text-rose-600">{fieldErrors.link}</p>
+                  )}
                 </div>
               </div>
 
-              {/* Placement & Order */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-[#5C0F17]">
-                    Display Placement
-                  </label>
-                  <select
-                    value={form.placement}
-                    onChange={(e) => setForm({ ...form, placement: e.target.value })}
-                    className={fieldClass}
-                  >
-                    <option value="all">All Pages (Homepage & Category Pages)</option>
-                    <option value="homepage">Homepage Only</option>
-                    <option value="category">Category Pages Only</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-[#5C0F17]">
-                    Display Order
-                  </label>
-                  <input
-                    type="number"
-                    min={0}
-                    value={form.order}
-                    onChange={(e) => setForm({ ...form, order: Number(e.target.value) })}
-                    className={fieldClass}
-                  />
-                </div>
+              {/* Display Placement */}
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-[#5C0F17]">
+                  Display Placement *
+                </label>
+                <select
+                  value={form.placement}
+                  onChange={(e) => setForm({ ...form, placement: e.target.value })}
+                  className={fieldClass}
+                >
+                  <option value="all">All Pages (Homepage & Category Pages)</option>
+                  <option value="homepage">Homepage Only</option>
+                  <option value="category">Category Pages Only</option>
+                </select>
               </div>
 
               {/* Active Toggle */}

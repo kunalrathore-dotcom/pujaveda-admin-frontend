@@ -13,7 +13,7 @@ import {
 import { categoryService } from "../services/categoryService";
 
 const MIN_NAME = 2;
-const MAX_NAME = 50;
+const MAX_NAME = 60;
 
 const inputClass =
   "mt-1.5 w-full rounded-xl border border-neutral-200 bg-white px-3.5 py-2.5 text-sm outline-none transition focus:border-[#5C0F17] focus:ring-2 focus:ring-[#5C0F17]/10";
@@ -306,7 +306,7 @@ export default function SubcategoriesPage() {
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Search subcategory..."
               aria-label="Search subcategories"
-              maxLength={MAX_NAME}
+              maxLength={100}
               className="w-full rounded-xl border border-neutral-200 py-2.5 pl-10 pr-3 text-sm outline-none transition focus:border-[#5C0F17]"
             />
           </div>

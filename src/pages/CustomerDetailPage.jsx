@@ -219,71 +219,109 @@ export default function CustomerDetailPage() {
       {/* ============================================================ */}
       {/* B. Overview Stats Grid (Screenshot Reference Cards)          */}
       {/* ============================================================ */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-        {/* Profile Status */}
-        <div className="rounded-2xl border border-neutral-200/80 bg-white p-4 shadow-xs">
-          <span className="text-[10px] font-black uppercase tracking-wider text-neutral-400 block">
-            Profile Status
-          </span>
-          <span className="text-base font-black text-emerald-700 mt-1 block">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+        {/* 1. Profile Status */}
+        <div className="rounded-2xl border border-neutral-100 bg-white p-5 sm:p-6 shadow-xs flex flex-col items-center justify-center text-center transition hover:shadow-sm">
+          <div className="w-11 h-11 rounded-2xl bg-[#E6F7F5] text-[#00A389] flex items-center justify-center mb-3">
+            <Star size={20} className="fill-[#00A389]/20" />
+          </div>
+          <span className="text-xl font-black text-emerald-700 tracking-tight">
             {customer.isActive ? "Active" : "Inactive"}
           </span>
-          <span className="text-[10px] text-neutral-400">Account status</span>
+          <span className="text-xs font-medium text-neutral-400 mt-1">
+            Profile Status
+          </span>
         </div>
 
-        {/* Total Orders */}
-        <div className="rounded-2xl border border-neutral-200/80 bg-white p-4 shadow-xs">
-          <span className="text-[10px] font-black uppercase tracking-wider text-neutral-400 block">
-            Total Orders
-          </span>
-          <span className="text-base font-black text-neutral-900 font-mono mt-1 block">
+        {/* 2. Total Orders (Received Reports equivalent) */}
+        <div className="rounded-2xl border border-neutral-100 bg-white p-5 sm:p-6 shadow-xs flex flex-col items-center justify-center text-center transition hover:shadow-sm">
+          <div className="w-11 h-11 rounded-2xl bg-[#E6F7F5] text-[#00A389] flex items-center justify-center mb-3">
+            <ShoppingBag size={20} />
+          </div>
+          <span className="text-2xl font-black text-neutral-900 font-mono tracking-tight">
             {orderSummary.totalOrders || 0}
           </span>
-          <span className="text-[10px] text-neutral-400">All-time orders</span>
+          <span className="text-xs font-medium text-neutral-400 mt-1">
+            Total Orders
+          </span>
         </div>
 
-        {/* Successfully Paid */}
-        <div className="rounded-2xl border border-emerald-200 bg-emerald-50/40 p-4 shadow-xs">
-          <span className="text-[10px] font-black uppercase tracking-wider text-emerald-800 block">
-            Paid Orders
-          </span>
-          <span className="text-base font-black text-emerald-700 font-mono mt-1 block">
-            {orderSummary.paidOrdersCount || 0}
-          </span>
-          <span className="text-[10px] text-emerald-600 font-medium">Verified payments</span>
-        </div>
-
-        {/* Pending Orders */}
-        <div className="rounded-2xl border border-amber-200 bg-amber-50/40 p-4 shadow-xs">
-          <span className="text-[10px] font-black uppercase tracking-wider text-amber-800 block">
-            Pending Orders
-          </span>
-          <span className="text-base font-black text-amber-700 font-mono mt-1 block">
-            {orderSummary.pendingOrdersCount || 0}
-          </span>
-          <span className="text-[10px] text-amber-600 font-medium">Unpaid / pending COD</span>
-        </div>
-
-        {/* Delivered Orders */}
-        <div className="rounded-2xl border border-blue-200 bg-blue-50/40 p-4 shadow-xs">
-          <span className="text-[10px] font-black uppercase tracking-wider text-blue-800 block">
-            Delivered
-          </span>
-          <span className="text-base font-black text-blue-700 font-mono mt-1 block">
+        {/* 3. Delivered Orders (Submitted Reports equivalent) */}
+        <div className="rounded-2xl border border-neutral-100 bg-white p-5 sm:p-6 shadow-xs flex flex-col items-center justify-center text-center transition hover:shadow-sm">
+          <div className="w-11 h-11 rounded-2xl bg-[#E6F7F5] text-[#00A389] flex items-center justify-center mb-3">
+            <CheckCircle2 size={20} />
+          </div>
+          <span className="text-2xl font-black text-neutral-900 font-mono tracking-tight">
             {orderSummary.deliveredOrdersCount || 0}
           </span>
-          <span className="text-[10px] text-blue-600 font-medium">Fulfilled orders</span>
+          <span className="text-xs font-medium text-neutral-400 mt-1">
+            Delivered Orders
+          </span>
         </div>
 
-        {/* Total Spent / Paid */}
-        <div className="rounded-2xl border border-[#DA9B26]/40 bg-gradient-to-br from-[#FFFDF9] to-[#FAF6F0] p-4 shadow-xs">
-          <span className="text-[10px] font-black uppercase tracking-wider text-[#5C0F17] block">
-            Total Paid
+        {/* 4. Saved Addresses (Friends equivalent) */}
+        <div className="rounded-2xl border border-neutral-100 bg-white p-5 sm:p-6 shadow-xs flex flex-col items-center justify-center text-center transition hover:shadow-sm">
+          <div className="w-11 h-11 rounded-2xl bg-[#E6F7F5] text-[#00A389] flex items-center justify-center mb-3">
+            <MapPin size={20} />
+          </div>
+          <span className="text-2xl font-black text-neutral-900 font-mono tracking-tight">
+            {customer.addresses?.length || 0}
           </span>
-          <span className="text-base font-black text-[#5C0F17] font-mono mt-1 block">
+          <span className="text-xs font-medium text-neutral-400 mt-1">
+            Saved Addresses
+          </span>
+        </div>
+
+        {/* 5. Total Spent (Total Tokens equivalent) */}
+        <div className="rounded-2xl border border-neutral-100 bg-white p-5 sm:p-6 shadow-xs flex flex-col items-center justify-center text-center transition hover:shadow-sm">
+          <div className="w-11 h-11 rounded-2xl bg-[#E6F7F5] text-[#00A389] flex items-center justify-center mb-3">
+            <Zap size={20} />
+          </div>
+          <span className="text-2xl font-black text-neutral-900 font-mono tracking-tight">
             ₹{Number(orderSummary.totalPaid || 0).toLocaleString("en-IN")}
           </span>
-          <span className="text-[10px] text-neutral-500 font-medium">Actual collected</span>
+          <span className="text-xs font-medium text-neutral-400 mt-1">
+            Total Spent
+          </span>
+        </div>
+
+        {/* 6. Account Duration (Days Active) */}
+        <div className="rounded-2xl border border-neutral-100 bg-white p-5 sm:p-6 shadow-xs flex flex-col items-center justify-center text-center transition hover:shadow-sm">
+          <div className="w-11 h-11 rounded-2xl bg-[#E6F7F5] text-[#00A389] flex items-center justify-center mb-3">
+            <MessageSquare size={20} />
+          </div>
+          <span className="text-2xl font-black text-neutral-900 font-mono tracking-tight">
+            {accountAgeDays} days
+          </span>
+          <span className="text-xs font-medium text-neutral-400 mt-1">
+            Account Age
+          </span>
+        </div>
+
+        {/* 7. Member Since Date */}
+        <div className="rounded-2xl border border-neutral-100 bg-white p-5 sm:p-6 shadow-xs flex flex-col items-center justify-center text-center transition hover:shadow-sm">
+          <div className="w-11 h-11 rounded-2xl bg-[#E6F7F5] text-[#00A389] flex items-center justify-center mb-3">
+            <Calendar size={20} />
+          </div>
+          <span className="text-lg font-black text-neutral-900 font-mono tracking-tight">
+            {joinedDateFormatted}
+          </span>
+          <span className="text-xs font-medium text-neutral-400 mt-1">
+            Member Since
+          </span>
+        </div>
+
+        {/* 8. Wishlist Items */}
+        <div className="rounded-2xl border border-neutral-100 bg-white p-5 sm:p-6 shadow-xs flex flex-col items-center justify-center text-center transition hover:shadow-sm">
+          <div className="w-11 h-11 rounded-2xl bg-[#E6F7F5] text-[#00A389] flex items-center justify-center mb-3">
+            <Heart size={20} />
+          </div>
+          <span className="text-2xl font-black text-neutral-900 font-mono tracking-tight">
+            {wishlist.count || 0}
+          </span>
+          <span className="text-xs font-medium text-neutral-400 mt-1">
+            Wishlist Items
+          </span>
         </div>
       </div>
 

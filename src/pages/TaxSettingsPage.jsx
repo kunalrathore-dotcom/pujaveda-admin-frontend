@@ -18,8 +18,13 @@ import {
 } from "lucide-react";
 import { pricingService } from "../services/pricingService";
 
-const inputClass =
-  "w-full rounded-xl border border-neutral-200 bg-white px-3.5 py-2.5 text-sm outline-none transition focus:border-[#5C0F17] focus:ring-2 focus:ring-[#5C0F17]/10";
+const getInputClass = (hasError) =>
+  `w-full rounded-xl border px-3.5 py-2.5 text-sm outline-none transition ${
+    hasError
+      ? "border-rose-500 ring-1 ring-rose-500 bg-rose-50/20 focus:border-rose-600 focus:ring-rose-500"
+      : "border-neutral-200 bg-white focus:border-[#5C0F17] focus:ring-2 focus:ring-[#5C0F17]/10"
+  }`;
+const inputClass = getInputClass(false);
 
 export default function TaxSettingsPage() {
   const [charges, setCharges] = useState([]);
@@ -32,6 +37,7 @@ export default function TaxSettingsPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingCharge, setEditingCharge] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState({});
 
   const [form, setForm] = useState({
     key: "",
@@ -90,6 +96,7 @@ export default function TaxSettingsPage() {
       description: "",
       isActive: true,
     });
+    setFieldErrors({});
     setModalOpen(true);
   };
 
@@ -104,6 +111,7 @@ export default function TaxSettingsPage() {
       description: charge.description || "",
       isActive: charge.isActive !== false,
     });
+    setFieldErrors({});
     setModalOpen(true);
   };
 
@@ -161,34 +169,34 @@ export default function TaxSettingsPage() {
     e.preventDefault();
     setError("");
 
+    const errs = {};
     if (!form.name.trim()) {
-      setError("Charge name is required.");
-      return;
+      errs.name = "Charge name is required.";
+    } else if (form.name.trim().length < 2 || form.name.trim().length > 60) {
+      errs.name = "Charge name must be between 2 and 60 characters.";
     }
-    if (form.name.trim().length < 2 || form.name.trim().length > 60) {
-      setError("Charge name must be between 2 and 60 characters.");
-      return;
-    }
+
     if (!editingCharge && !form.key.trim()) {
-      setError("Unique identifier key is required.");
-      return;
+      errs.key = "Unique identifier key is required.";
+    } else if (!editingCharge && (form.key.trim().length < 2 || form.key.trim().length > 40)) {
+      errs.key = "Charge key must be between 2 and 40 characters.";
     }
-    if (!editingCharge && (form.key.trim().length < 2 || form.key.trim().length > 40)) {
-      setError("Charge key must be between 2 and 40 characters.");
-      return;
-    }
-    if (form.description && form.description.length > 200) {
-      setError("Description cannot exceed 200 characters.");
-      return;
-    }
+
     if (form.value === "" || isNaN(form.value) || Number(form.value) < 0) {
-      setError("Please enter a valid non-negative value.");
+      errs.value = "Please enter a valid non-negative value.";
+    } else if (form.type === "percentage" && Number(form.value) > 100) {
+      errs.value = "Percentage charge cannot exceed 100%.";
+    }
+
+    if (form.description && form.description.length > 300) {
+      errs.description = "Customer explanation description cannot exceed 300 characters.";
+    }
+
+    if (Object.keys(errs).length > 0) {
+      setFieldErrors(errs);
       return;
     }
-    if (form.type === "percentage" && Number(form.value) > 100) {
-      setError("Percentage charge cannot exceed 100%.");
-      return;
-    }
+    setFieldErrors({});
 
     try {
       setSaving(true);
@@ -275,7 +283,7 @@ export default function TaxSettingsPage() {
           <button
             type="button"
             onClick={openCreateModal}
-            className="flex items-center gap-2 rounded-xl bg-[#5C0F17] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#4A0D15]"
+            className="inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-[#5C0F17] px-4 py-2.5 text-xs sm:text-sm font-bold text-white shadow-sm transition hover:bg-[#4A0D15]"
           >
             <Plus size={16} />
             Add Surcharge
@@ -630,10 +638,16 @@ export default function TaxSettingsPage() {
                   minLength={2}
                   maxLength={60}
                   value={form.name}
-                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  onChange={(e) => {
+                    setForm({ ...form, name: e.target.value });
+                    if (fieldErrors.name) setFieldErrors({ ...fieldErrors, name: "" });
+                  }}
                   placeholder="e.g. GST or Platform Fee"
-                  className={inputClass}
+                  className={getInputClass(Boolean(fieldErrors.name))}
                 />
+                {fieldErrors.name && (
+                  <p className="mt-1 text-[11px] font-semibold text-rose-600">{fieldErrors.name}</p>
+                )}
               </div>
 
               {!editingCharge && (

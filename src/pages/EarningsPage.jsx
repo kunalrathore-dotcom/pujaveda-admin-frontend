@@ -208,18 +208,13 @@ export default function EarningsPage() {
   return (
     <div className="space-y-8 pb-12">
       {/* ============================================================ */}
-      {/* Header & Filter Bar                                          */}
+      {/* Header                                                       */}
       {/* ============================================================ */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <div className="flex items-center gap-2">
-            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#5C0F17] text-[#DA9B26]">
-              <IndianRupee size={16} />
-            </span>
-            <h1 className="text-2xl font-black text-neutral-900 tracking-tight">Earnings</h1>
-          </div>
+          <h1 className="text-2xl font-black text-neutral-900 tracking-tight">Earnings</h1>
           <p className="mt-1 text-xs text-neutral-500 font-medium">
-            Clear, authoritative financial breakdown. Product Value, Customer Paid, and Business Fee Earnings aggregated directly from MongoDB.
+            View your revenue and customer payment history.
           </p>
         </div>
 
@@ -237,55 +232,6 @@ export default function EarningsPage() {
         </button>
       </div>
 
-      {/* Date Filter Bar */}
-      <div className="rounded-3xl border border-neutral-200/80 bg-white p-4 sm:p-5 shadow-xs">
-        <form onSubmit={handleApplyDateFilters} className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex flex-wrap items-center gap-3 text-xs">
-            <span className="font-bold text-neutral-700 flex items-center gap-1.5">
-              <Calendar size={15} className="text-[#DA9B26]" /> Date Range Filter:
-            </span>
-            <div className="flex items-center gap-2">
-              <input
-                type="date"
-                value={filterStartDate}
-                onChange={(e) => setFilterStartDate(e.target.value)}
-                className="rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-1.5 text-xs font-medium outline-none focus:border-[#5C0F17] focus:bg-white"
-                title="Start Date"
-              />
-              <span className="text-neutral-400 font-semibold">to</span>
-              <input
-                type="date"
-                value={filterEndDate}
-                onChange={(e) => setFilterEndDate(e.target.value)}
-                className="rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-1.5 text-xs font-medium outline-none focus:border-[#5C0F17] focus:bg-white"
-                title="End Date"
-              />
-            </div>
-
-            <button
-              type="submit"
-              className="rounded-xl bg-[#5C0F17] px-4 py-1.5 font-bold text-white transition hover:bg-[#4A0D15] shadow-xs"
-            >
-              Apply Filter
-            </button>
-
-            {(filterStartDate || filterEndDate) && (
-              <button
-                type="button"
-                onClick={handleResetDateFilters}
-                className="text-xs font-semibold text-neutral-500 hover:text-neutral-800 transition"
-              >
-                Clear
-              </button>
-            )}
-          </div>
-
-          <div className="text-[11px] font-medium text-neutral-400">
-            {summary.totalOrders} total order(s) · {summary.collectedOrdersCount} collected · {summary.pendingOrdersCount} pending
-          </div>
-        </form>
-      </div>
-
       {summaryError && (
         <div className="flex items-center gap-2 rounded-2xl bg-rose-50 p-4 text-xs font-semibold text-rose-700 border border-rose-200">
           <AlertCircle size={16} />
@@ -294,167 +240,61 @@ export default function EarningsPage() {
       )}
 
       {/* ============================================================ */}
-      {/* 1. PRIMARY THREE FIGURES TOGETHER (FOR NON-TECHNICAL ADMIN) */}
+      {/* Exactly Two Summary Cards (Screenshot Structure Reference)   */}
       {/* ============================================================ */}
-      <div className="space-y-3">
-        <div className="flex items-center gap-2 px-1">
-          <Sparkles size={15} className="text-[#DA9B26]" />
-          <h2 className="text-xs font-black uppercase tracking-[0.2em] text-[#5C0F17]">
-            Core Financial Summary (Client Overview)
-          </h2>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        {/* Card 1: Total Revenue */}
+        <div className="rounded-2xl border border-neutral-200/80 bg-white p-5 sm:p-6 shadow-xs flex items-center gap-4 transition hover:shadow-sm">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600 border border-emerald-100">
+            <IndianRupee size={22} className="stroke-[2.5]" />
+          </div>
+          <div>
+            <span className="text-xs font-bold text-neutral-500 block">Total Revenue</span>
+            <div className="text-2xl font-black text-neutral-900 font-mono mt-0.5">
+              {summaryLoading ? (
+                <div className="h-7 w-28 animate-pulse rounded bg-neutral-200" />
+              ) : (
+                `Rs ${(summary.totalRevenue ?? summary.customerPaid ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}`
+              )}
+            </div>
+            <p className="text-[11px] text-neutral-400 mt-0.5">
+              Overall amount collected through eligible orders
+            </p>
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-          {/* A. Product Value */}
-          <div className="rounded-3xl border-2 border-neutral-200 bg-white p-6 shadow-xs relative overflow-hidden">
-            <div className="flex items-center justify-between">
-              <div>
-                <span className="text-[11px] font-black uppercase tracking-wider text-neutral-500 block">
-                  A. Product Value
-                </span>
-                <span className="text-[10px] text-neutral-400">Original Selling Value (Subtotal)</span>
-              </div>
-              <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-blue-50 text-blue-700">
-                <ShoppingBag size={18} />
-              </span>
-            </div>
-            <div className="mt-4">
-              <div className="text-2xl font-black text-neutral-900 font-mono">
-                {summaryLoading ? (
-                  <div className="h-7 w-28 animate-pulse rounded bg-neutral-200" />
-                ) : (
-                  `₹${summary.productValue.toLocaleString("en-IN", { minimumFractionDigits: 2 })}`
-                )}
-              </div>
-              <p className="mt-2 text-xs text-neutral-500 font-medium">
-                Total original price of products in orders before discounts or fees. Not product purchase cost.
-              </p>
-            </div>
+        {/* Card 2: Today's Revenue */}
+        <div className="rounded-2xl border border-neutral-200/80 bg-white p-5 sm:p-6 shadow-xs flex items-center gap-4 transition hover:shadow-sm">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#DA9B26]/10 text-[#5C0F17] border border-[#DA9B26]/20">
+            <Sparkles size={22} className="text-[#DA9B26]" />
           </div>
-
-          {/* B. Customer Paid */}
-          <div className="rounded-3xl border-2 border-emerald-300 bg-gradient-to-br from-emerald-50/60 to-white p-6 shadow-xs relative overflow-hidden">
-            <div className="flex items-center justify-between">
-              <div>
-                <span className="text-[11px] font-black uppercase tracking-wider text-emerald-800 block">
-                  B. Customer Paid
-                </span>
-                <span className="text-[10px] text-emerald-600 font-semibold">Actual Money Collected</span>
-              </div>
-              <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-emerald-600 text-white shadow-xs">
-                <CheckCircle2 size={18} />
-              </span>
+          <div>
+            <span className="text-xs font-bold text-neutral-500 block">Today's Revenue</span>
+            <div className="text-2xl font-black text-neutral-900 font-mono mt-0.5">
+              {summaryLoading ? (
+                <div className="h-7 w-28 animate-pulse rounded bg-neutral-200" />
+              ) : (
+                `Rs ${(summary.todayRevenue ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}`
+              )}
             </div>
-            <div className="mt-4">
-              <div className="text-2xl font-black text-emerald-800 font-mono">
-                {summaryLoading ? (
-                  <div className="h-7 w-28 animate-pulse rounded bg-neutral-200" />
-                ) : (
-                  `₹${summary.customerPaid.toLocaleString("en-IN", { minimumFractionDigits: 2 })}`
-                )}
-              </div>
-              <p className="mt-2 text-xs font-semibold text-emerald-700">
-                {summary.collectedOrdersCount} order(s) paid & collected.
-                {summary.pendingAmount > 0 && (
-                  <span className="block text-[11px] font-normal text-amber-700 mt-0.5">
-                    (₹{summary.pendingAmount.toLocaleString("en-IN")} pending in {summary.pendingOrdersCount} uncollected / COD orders)
-                  </span>
-                )}
-              </p>
-            </div>
-          </div>
-
-          {/* C. Admin Fee Earnings */}
-          <div className="rounded-3xl border-2 border-[#DA9B26]/60 bg-gradient-to-br from-[#FFFDF9] via-white to-[#FAF6F0] p-6 shadow-xs relative overflow-hidden">
-            <div className="flex items-center justify-between">
-              <div>
-                <span className="text-[11px] font-black uppercase tracking-wider text-[#5C0F17] block">
-                  C. Admin Fee Earnings
-                </span>
-                <span className="text-[10px] text-[#DA9B26] font-bold">Business Fee Income</span>
-              </div>
-              <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#5C0F17] text-[#DA9B26] shadow-xs">
-                <TrendingUp size={18} />
-              </span>
-            </div>
-            <div className="mt-4">
-              <div className="text-2xl font-black text-[#5C0F17] font-mono">
-                {summaryLoading ? (
-                  <div className="h-7 w-28 animate-pulse rounded bg-neutral-200" />
-                ) : (
-                  `₹${summary.adminFeeEarnings.toLocaleString("en-IN", { minimumFractionDigits: 2 })}`
-                )}
-              </div>
-              <p className="mt-2 text-xs text-neutral-600 font-medium">
-                Platform fee & service charges earned on collected orders. Strictly excludes taxes and shipping.
-              </p>
-            </div>
+            <p className="text-[11px] text-neutral-400 mt-0.5">
+              Amount actually collected today (payment date)
+            </p>
           </div>
         </div>
       </div>
 
-      {/* Secondary Detailed Cards: Taxes, Shipping, Platform Fee, Discounts */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {/* Taxes Collected */}
-        <div className="rounded-2xl border border-neutral-200/80 bg-white p-4 shadow-xs">
-          <div className="flex items-center justify-between text-neutral-500">
-            <span className="text-[10px] font-black uppercase tracking-wider">Taxes Collected (GST)</span>
-            <Receipt size={15} className="text-violet-600" />
-          </div>
-          <div className="mt-2 text-lg font-black text-neutral-900 font-mono">
-            ₹{summary.taxesCollected.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-          </div>
-          <p className="mt-1 text-[11px] text-neutral-400">Government GST on collected orders</p>
-        </div>
-
-        {/* Platform Fee */}
-        <div className="rounded-2xl border border-neutral-200/80 bg-white p-4 shadow-xs">
-          <div className="flex items-center justify-between text-neutral-500">
-            <span className="text-[10px] font-black uppercase tracking-wider">Platform Fee Component</span>
-            <TrendingUp size={15} className="text-amber-600" />
-          </div>
-          <div className="mt-2 text-lg font-black text-neutral-900 font-mono">
-            ₹{summary.platformFee.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-          </div>
-          <p className="mt-1 text-[11px] text-neutral-400">Standard 2% platform convenience fee</p>
-        </div>
-
-        {/* Shipping Collected */}
-        <div className="rounded-2xl border border-neutral-200/80 bg-white p-4 shadow-xs">
-          <div className="flex items-center justify-between text-neutral-500">
-            <span className="text-[10px] font-black uppercase tracking-wider">Shipping Collected</span>
-            <Truck size={15} className="text-teal-600" />
-          </div>
-          <div className="mt-2 text-lg font-black text-neutral-900 font-mono">
-            ₹{summary.shippingCollected.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-          </div>
-          <p className="mt-1 text-[11px] text-neutral-400">Delivery fees paid by customer</p>
-        </div>
-
-        {/* Discounts Given */}
-        <div className="rounded-2xl border border-neutral-200/80 bg-white p-4 shadow-xs">
-          <div className="flex items-center justify-between text-neutral-500">
-            <span className="text-[10px] font-black uppercase tracking-wider">Discounts Given</span>
-            <Percent size={15} className="text-rose-600" />
-          </div>
-          <div className="mt-2 text-lg font-black text-neutral-900 font-mono">
-            ₹{summary.discountGiven.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-          </div>
-          <p className="mt-1 text-[11px] text-neutral-400">Applied coupon savings</p>
-        </div>
-      </div>
-
       {/* ============================================================ */}
-      {/* 2. Recent Orders Table (Direct Financial Scanning)           */}
+      {/* Orders / Transactions Table (Following Screenshot Structure) */}
       {/* ============================================================ */}
       <section className="rounded-3xl border border-neutral-200/80 bg-white shadow-xs overflow-hidden">
-        {/* Table Header & Controls */}
+        {/* Search & Filter Toolbar */}
         <div className="border-b border-neutral-100 p-5 space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
             <div>
-              <h2 className="text-lg font-black text-neutral-900">Recent Orders (Financial Breakdown)</h2>
+              <h2 className="text-base font-black text-neutral-900">Orders & Payment History</h2>
               <p className="text-xs text-neutral-500">
-                Direct view of Product Value, Customer Paid, and Business Fee Earnings per order without needing to open another screen.
+                View customer payment records, product values, collected revenues, and fee earnings.
               </p>
             </div>
             <div className="text-xs font-bold text-neutral-600 bg-neutral-50 border border-neutral-200/70 rounded-xl px-3 py-1.5 self-start">
@@ -462,16 +302,18 @@ export default function EarningsPage() {
             </div>
           </div>
 
-          {/* Search & Filter Toolbar */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-3 pt-1">
             <form onSubmit={handleSearchSubmit} className="md:col-span-2 relative">
               <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-400" size={15} />
               <input
                 type="text"
                 maxLength={100}
-                placeholder="Search order #, customer name, email, phone, or User ID..."
+                placeholder="Search payment id, order #, customer, email, phone..."
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setPage(1);
+                }}
                 className="w-full rounded-2xl border border-neutral-200 bg-neutral-50 py-2.5 pl-10 pr-4 text-xs font-medium outline-none focus:border-[#5C0F17] focus:bg-white"
               />
             </form>
@@ -528,109 +370,91 @@ export default function EarningsPage() {
             <table className="w-full text-left text-xs">
               <thead className="border-b border-neutral-100 bg-[#FAF6F0]/80 text-[#756255]">
                 <tr>
-                  <th className="px-4 py-3.5 font-bold whitespace-nowrap">Order #</th>
-                  <th className="px-4 py-3.5 font-bold whitespace-nowrap">Customer</th>
+                  <th className="px-4 py-3.5 font-bold whitespace-nowrap">S.No</th>
+                  <th className="px-4 py-3.5 font-bold whitespace-nowrap">User</th>
+                  <th className="px-4 py-3.5 font-bold whitespace-nowrap">Order ID</th>
                   <th className="px-4 py-3.5 font-bold whitespace-nowrap">Transaction ID</th>
-                  <th className="px-4 py-3.5 font-bold whitespace-nowrap">Date</th>
-                  <th className="px-4 py-3.5 font-bold whitespace-nowrap text-right bg-blue-50/40 text-blue-900">Product Value</th>
-                  <th className="px-4 py-3.5 font-bold whitespace-nowrap text-right bg-emerald-50/50 text-emerald-900">Customer Paid</th>
-                  <th className="px-4 py-3.5 font-bold whitespace-nowrap text-right bg-[#DA9B26]/10 text-[#5C0F17]">Admin Fee Earnings</th>
-                  <th className="px-4 py-3.5 font-bold whitespace-nowrap text-right">Discount</th>
-                  <th className="px-4 py-3.5 font-bold whitespace-nowrap text-right">Tax (GST)</th>
-                  <th className="px-4 py-3.5 font-bold whitespace-nowrap text-right">Platform Fee</th>
-                  <th className="px-4 py-3.5 font-bold whitespace-nowrap text-right">Addl. Fees</th>
-                  <th className="px-4 py-3.5 font-bold whitespace-nowrap text-right">Shipping</th>
-                  <th className="px-4 py-3.5 font-bold whitespace-nowrap text-right">Customer Total</th>
+                  <th className="px-4 py-3.5 font-bold whitespace-nowrap text-right">Product Value</th>
+                  <th className="px-4 py-3.5 font-bold whitespace-nowrap text-right">Customer Paid</th>
+                  <th className="px-4 py-3.5 font-bold whitespace-nowrap text-right">Admin Fee Earnings</th>
+                  <th className="px-4 py-3.5 font-bold whitespace-nowrap">Purchased Date & Time</th>
                   <th className="px-4 py-3.5 font-bold whitespace-nowrap text-center">Payment Status</th>
                   <th className="px-4 py-3.5 font-bold whitespace-nowrap text-center">Order Status</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-neutral-100 font-medium">
-                {orders.map((o) => (
+                {orders.map((o, idx) => (
                   <tr key={o._id} className="hover:bg-neutral-50/80 transition">
-                    <td className="px-4 py-3 font-mono font-bold whitespace-nowrap">
-                      <Link
-                        to={`/orders/${o._id || o.orderNumber}`}
-                        className="text-[#5C0F17] hover:underline"
-                        title="View Order Details"
-                      >
-                        {o.orderNumber}
-                      </Link>
+                    <td className="px-4 py-3 font-mono text-neutral-500 whitespace-nowrap">
+                      {(page - 1) * 10 + idx + 1}
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap">
                       {o.userId ? (
                         <Link
                           to={`/customers/${o.userId}`}
-                          className="font-bold text-neutral-900 hover:text-[#5C0F17] hover:underline block"
+                          className="font-bold text-[#5C0F17] hover:underline block"
                           title="View Customer Profile"
                         >
                           {o.customerName}
                         </Link>
                       ) : (
-                        <div className="font-bold text-neutral-800">{o.customerName}</div>
+                        <span className="font-bold text-neutral-800">{o.customerName}</span>
                       )}
                       <div className="text-[10px] text-neutral-400">{o.customerEmail || o.customerPhone || "N/A"}</div>
+                    </td>
+                    <td className="px-4 py-3 font-mono font-bold whitespace-nowrap">
+                      <Link
+                        to={`/orders/${o._id || o.orderNumber}`}
+                        className="text-neutral-900 hover:text-[#5C0F17] hover:underline"
+                        title="View Order Details"
+                      >
+                        {o.orderNumber}
+                      </Link>
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap font-mono text-[11px]">
                       {o.transactionId ? (
                         <Link
                           to={`/orders/${o._id || o.orderNumber}`}
                           className="font-semibold text-[#5C0F17] hover:underline bg-[#5C0F17]/5 px-2 py-0.5 rounded-md border border-[#5C0F17]/10"
-                          title="View Order Payment Details"
+                          title="View Order Details"
                         >
                           {o.transactionId}
                         </Link>
                       ) : (
-                        <span className="text-neutral-400">—</span>
+                        <span className="text-neutral-400 font-mono">—</span>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-neutral-500 whitespace-nowrap text-[11px]">
+
+                    {/* Three Important Financial Values */}
+                    <td className="px-4 py-3 text-right font-mono font-bold text-neutral-800 whitespace-nowrap">
+                      ₹{o.productValue.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                    </td>
+
+                    <td className="px-4 py-3 text-right font-mono font-black whitespace-nowrap">
+                      <span className={o.isCollected ? "text-emerald-700" : "text-amber-700"}>
+                        {o.isCollected
+                          ? `₹${o.customerPaid.toLocaleString("en-IN", { minimumFractionDigits: 2 })}`
+                          : "₹0.00"}
+                      </span>
+                    </td>
+
+                    <td className="px-4 py-3 text-right font-mono font-bold text-[#5C0F17] whitespace-nowrap">
+                      ₹{o.adminFeeEarnings.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                    </td>
+
+                    <td className="px-4 py-3 text-neutral-600 whitespace-nowrap text-[11px]">
                       {o.orderDate
-                        ? new Date(o.orderDate).toLocaleDateString("en-IN", {
-                            day: "numeric",
+                        ? new Date(o.orderDate).toLocaleString("en-IN", {
+                            day: "2-digit",
                             month: "short",
                             year: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                            hour12: true,
                           })
                         : "N/A"}
                     </td>
 
-                    {/* A. Product Value (Subtotal) */}
-                    <td className="px-4 py-3 text-right font-mono font-bold text-blue-900 bg-blue-50/20 whitespace-nowrap">
-                      ₹{o.productValue.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-                    </td>
-
-                    {/* B. Customer Paid */}
-                    <td className="px-4 py-3 text-right font-mono font-black bg-emerald-50/30 whitespace-nowrap">
-                      <span className={o.isCollected ? "text-emerald-700" : "text-amber-700"}>
-                        {o.isCollected
-                          ? `₹${o.customerPaid.toLocaleString("en-IN", { minimumFractionDigits: 2 })}`
-                          : "₹0.00 (Unpaid)"}
-                      </span>
-                    </td>
-
-                    {/* C. Admin Fee Earnings */}
-                    <td className="px-4 py-3 text-right font-mono font-black text-[#5C0F17] bg-[#DA9B26]/10 whitespace-nowrap">
-                      ₹{o.adminFeeEarnings.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-                    </td>
-
-                    <td className="px-4 py-3 text-right font-mono text-rose-600 whitespace-nowrap">
-                      {o.discount > 0 ? `-₹${o.discount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}` : "₹0.00"}
-                    </td>
-                    <td className="px-4 py-3 text-right font-mono text-neutral-700 whitespace-nowrap">
-                      ₹{o.tax.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-                    </td>
-                    <td className="px-4 py-3 text-right font-mono text-neutral-700 whitespace-nowrap">
-                      ₹{o.platformFee.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-                    </td>
-                    <td className="px-4 py-3 text-right font-mono text-neutral-500 whitespace-nowrap">
-                      ₹{o.additionalEligibleFees.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-                    </td>
-                    <td className="px-4 py-3 text-right font-mono text-neutral-700 whitespace-nowrap">
-                      {o.shipping === 0 ? "FREE" : `₹${o.shipping.toLocaleString("en-IN", { minimumFractionDigits: 2 })}`}
-                    </td>
-                    <td className="px-4 py-3 text-right font-mono font-bold text-neutral-900 whitespace-nowrap">
-                      ₹{o.customerTotal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-                    </td>
                     <td className="px-4 py-3 text-center whitespace-nowrap">
                       <span
                         className={`inline-block rounded-full border px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${getPaymentStatusBadge(
@@ -640,6 +464,7 @@ export default function EarningsPage() {
                         {o.paymentStatus}
                       </span>
                     </td>
+
                     <td className="px-4 py-3 text-center whitespace-nowrap">
                       <span
                         className={`inline-block rounded-full border px-2.5 py-0.5 text-[10px] font-bold ${getOrderStatusBadge(

@@ -44,12 +44,17 @@ export default function AdminLoginPage() {
       const redirectPath = location.state?.from?.pathname || "/";
       navigate(redirectPath, { replace: true });
     } catch (error) {
+      if (error.fieldErrors) setErrors(error.fieldErrors);
       setServerError(error.message || "Unable to sign in.");
     }
   };
 
-  const inputClass =
-    "mt-2 w-full rounded-xl border border-[#E8DDCE] bg-white px-4 py-3 text-sm outline-none transition focus:border-[#DA9B26] focus:ring-2 focus:ring-[#DA9B26]/10";
+  const getInputClass = (hasError) =>
+    `mt-2 w-full rounded-xl border px-4 py-3 text-sm outline-none transition ${
+      hasError
+        ? "border-rose-500 ring-1 ring-rose-500 bg-rose-50/20 focus:border-rose-600 focus:ring-rose-500"
+        : "border-[#E8DDCE] bg-white focus:border-[#DA9B26] focus:ring-2 focus:ring-[#DA9B26]/10"
+    }`;
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-[#FAF6F0] px-4 py-10">
@@ -84,7 +89,7 @@ export default function AdminLoginPage() {
                 setEmail(event.target.value);
                 setErrors((prev) => ({ ...prev, email: "" }));
               }}
-              className={inputClass}
+              className={getInputClass(Boolean(errors.email))}
               placeholder="admin@pujaveda.in"
               aria-invalid={Boolean(errors.email)}
             />
@@ -116,7 +121,7 @@ export default function AdminLoginPage() {
                   setPassword(event.target.value);
                   setErrors((prev) => ({ ...prev, password: "" }));
                 }}
-                className={`${inputClass} pr-12`}
+                className={`${getInputClass(Boolean(errors.password))} pr-12`}
                 placeholder="Enter admin password"
                 aria-invalid={Boolean(errors.password)}
               />

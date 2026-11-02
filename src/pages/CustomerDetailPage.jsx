@@ -20,6 +20,10 @@ import {
   AlertCircle,
   RefreshCw,
   Sparkles,
+  Star,
+  Coins,
+  Zap,
+  MessageSquare,
 } from "lucide-react";
 import { api } from "../services/api";
 
@@ -123,6 +127,18 @@ export default function CustomerDetailPage() {
   const { customer, orderSummary = {}, orders = [], wishlist = { count: 0, items: [] } } = data;
   const initial = customer.name ? customer.name.charAt(0).toUpperCase() : "U";
 
+  const accountAgeDays = customer.createdAt
+    ? Math.max(0, Math.floor((Date.now() - new Date(customer.createdAt).getTime()) / (1000 * 60 * 60 * 24)))
+    : 0;
+
+  const joinedDateFormatted = customer.createdAt
+    ? new Date(customer.createdAt).toLocaleDateString("en-IN", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      })
+    : "N/A";
+
   return (
     <div className="space-y-6 pb-12">
       {/* Navigation Header */}
@@ -137,10 +153,8 @@ export default function CustomerDetailPage() {
           </button>
           <div>
             <h1 className="text-xl sm:text-2xl font-black text-neutral-900 tracking-tight">
-              Customer Details
-            </h1>
-            <p className="text-xs text-neutral-500">
-              View comprehensive customer profile, order history, and saved preferences.
+              User Details</h1>
+            <p className="text-xs text-neutral-500">View detailed information about the user.
             </p>
           </div>
         </div>

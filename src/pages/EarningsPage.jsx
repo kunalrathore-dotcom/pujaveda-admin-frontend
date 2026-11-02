@@ -212,9 +212,9 @@ export default function EarningsPage() {
       {/* ============================================================ */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-black text-neutral-900 tracking-tight">Earnings</h1>
+          <h1 className="text-2xl font-black text-neutral-900 tracking-tight">Manage Earning</h1>
           <p className="mt-1 text-xs text-neutral-500 font-medium">
-            View your revenue and customer payment history.
+            View order purchases and payment history.
           </p>
         </div>
 
@@ -308,7 +308,7 @@ export default function EarningsPage() {
               <input
                 type="text"
                 maxLength={100}
-                placeholder="Search payment id, order #, customer, email, phone..."
+                placeholder="Search payment id or description..."
                 value={search}
                 onChange={(e) => {
                   setSearch(e.target.value);
@@ -368,81 +368,71 @@ export default function EarningsPage() {
         ) : orders.length > 0 ? (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
-              <thead className="border-b border-neutral-100 bg-[#FAF6F0]/80 text-[#756255]">
+              <thead className="border-b border-neutral-100 bg-neutral-50/70 text-neutral-500 font-semibold">
                 <tr>
-                  <th className="px-4 py-3.5 font-bold whitespace-nowrap">S.No</th>
-                  <th className="px-4 py-3.5 font-bold whitespace-nowrap">User</th>
-                  <th className="px-4 py-3.5 font-bold whitespace-nowrap">Order ID</th>
-                  <th className="px-4 py-3.5 font-bold whitespace-nowrap">Transaction ID</th>
-                  <th className="px-4 py-3.5 font-bold whitespace-nowrap text-right">Product Value</th>
-                  <th className="px-4 py-3.5 font-bold whitespace-nowrap text-right">Customer Paid</th>
-                  <th className="px-4 py-3.5 font-bold whitespace-nowrap text-right">Admin Fee Earnings</th>
-                  <th className="px-4 py-3.5 font-bold whitespace-nowrap">Purchased Date & Time</th>
-                  <th className="px-4 py-3.5 font-bold whitespace-nowrap text-center">Payment Status</th>
-                  <th className="px-4 py-3.5 font-bold whitespace-nowrap text-center">Order Status</th>
+                  <th className="px-5 py-4 font-bold whitespace-nowrap">S.No</th>
+                  <th className="px-5 py-4 font-bold whitespace-nowrap">User</th>
+                  <th className="px-5 py-4 font-bold whitespace-nowrap">Transaction ID</th>
+                  <th className="px-5 py-4 font-bold whitespace-nowrap text-center">Items</th>
+                  <th className="px-5 py-4 font-bold whitespace-nowrap">Amount</th>
+                  <th className="px-5 py-4 font-bold whitespace-nowrap">Purchased Date & Time</th>
+                  <th className="px-5 py-4 font-bold whitespace-nowrap text-center">Status</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-neutral-100 font-medium">
                 {orders.map((o, idx) => (
                   <tr key={o._id} className="hover:bg-neutral-50/80 transition">
-                    <td className="px-4 py-3 font-mono text-neutral-500 whitespace-nowrap">
+                    <td className="px-5 py-4 font-mono text-neutral-600 whitespace-nowrap">
                       {(page - 1) * 10 + idx + 1}
                     </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
+                    <td className="px-5 py-4 whitespace-nowrap">
                       {o.userId ? (
                         <Link
                           to={`/customers/${o.userId}`}
-                          className="font-bold text-[#5C0F17] hover:underline block"
+                          className="font-bold text-[#00A389] hover:underline block text-sm"
                           title="View Customer Profile"
                         >
                           {o.customerName}
                         </Link>
                       ) : (
-                        <span className="font-bold text-neutral-800">{o.customerName}</span>
+                        <span className="font-bold text-[#00A389] block text-sm">{o.customerName}</span>
                       )}
-                      <div className="text-[10px] text-neutral-400">{o.customerEmail || o.customerPhone || "N/A"}</div>
+                      <div className="text-[11px] text-neutral-400">{o.customerEmail || o.customerPhone || "N/A"}</div>
                     </td>
-                    <td className="px-4 py-3 font-mono font-bold whitespace-nowrap">
-                      <Link
-                        to={`/orders/${o._id || o.orderNumber}`}
-                        className="text-neutral-900 hover:text-[#5C0F17] hover:underline"
-                        title="View Order Details"
-                      >
-                        {o.orderNumber}
-                      </Link>
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap font-mono text-[11px]">
+                    <td className="px-5 py-4 whitespace-nowrap font-mono text-xs">
                       {o.transactionId ? (
                         <Link
                           to={`/orders/${o._id || o.orderNumber}`}
-                          className="font-semibold text-[#5C0F17] hover:underline bg-[#5C0F17]/5 px-2 py-0.5 rounded-md border border-[#5C0F17]/10"
+                          className="text-neutral-700 hover:text-[#5C0F17] hover:underline"
                           title="View Order Details"
                         >
                           {o.transactionId}
                         </Link>
                       ) : (
-                        <span className="text-neutral-400 font-mono">—</span>
+                        <Link
+                          to={`/orders/${o._id || o.orderNumber}`}
+                          className="text-neutral-500 hover:text-[#5C0F17] hover:underline"
+                          title="View Order Details"
+                        >
+                          {o.orderNumber}
+                        </Link>
                       )}
                     </td>
 
-                    {/* Three Important Financial Values */}
-                    <td className="px-4 py-3 text-right font-mono font-bold text-neutral-800 whitespace-nowrap">
-                      ₹{o.productValue.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                    <td className="px-5 py-4 whitespace-nowrap text-center font-mono font-semibold text-neutral-700">
+                      {o.itemCount || (Array.isArray(o.chargesBreakdown) ? 1 : 1)}
                     </td>
 
-                    <td className="px-4 py-3 text-right font-mono font-black whitespace-nowrap">
-                      <span className={o.isCollected ? "text-emerald-700" : "text-amber-700"}>
-                        {o.isCollected
-                          ? `₹${o.customerPaid.toLocaleString("en-IN", { minimumFractionDigits: 2 })}`
-                          : "₹0.00"}
-                      </span>
+                    <td className="px-5 py-4 whitespace-nowrap">
+                      <div className="font-black text-neutral-900 font-mono text-sm">
+                        Rs {(o.isCollected ? o.customerPaid : o.customerTotal || o.productValue || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                      </div>
+                      <div className="text-[10px] text-neutral-400 font-medium mt-0.5">
+                        Product: ₹{o.productValue.toLocaleString("en-IN")} • Admin Fee: ₹{o.adminFeeEarnings.toLocaleString("en-IN")}
+                      </div>
                     </td>
 
-                    <td className="px-4 py-3 text-right font-mono font-bold text-[#5C0F17] whitespace-nowrap">
-                      ₹{o.adminFeeEarnings.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-                    </td>
-
-                    <td className="px-4 py-3 text-neutral-600 whitespace-nowrap text-[11px]">
+                    <td className="px-5 py-4 text-neutral-600 whitespace-nowrap text-xs">
                       {o.orderDate
                         ? new Date(o.orderDate).toLocaleString("en-IN", {
                             day: "2-digit",
@@ -455,23 +445,13 @@ export default function EarningsPage() {
                         : "N/A"}
                     </td>
 
-                    <td className="px-4 py-3 text-center whitespace-nowrap">
+                    <td className="px-5 py-4 text-center whitespace-nowrap">
                       <span
                         className={`inline-block rounded-full border px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${getPaymentStatusBadge(
                           o.paymentStatus
                         )}`}
                       >
                         {o.paymentStatus}
-                      </span>
-                    </td>
-
-                    <td className="px-4 py-3 text-center whitespace-nowrap">
-                      <span
-                        className={`inline-block rounded-full border px-2.5 py-0.5 text-[10px] font-bold ${getOrderStatusBadge(
-                          o.orderStatus
-                        )}`}
-                      >
-                        {o.orderStatus}
                       </span>
                     </td>
                   </tr>

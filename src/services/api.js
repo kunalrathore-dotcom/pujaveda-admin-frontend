@@ -54,6 +54,10 @@ export const api = {
       handleAuthError(res);
       const err = new Error(data.message || `Request failed with status ${res.status}`);
       err.errors = data.errors;
+      err.fieldErrors =
+        data.errors && typeof data.errors === "object" && !Array.isArray(data.errors)
+          ? data.errors
+          : {};
       err.devOtp = data.devOtp;
       throw err;
     }
@@ -71,6 +75,10 @@ export const api = {
       handleAuthError(res);
       const err = new Error(data.message || `Request failed with status ${res.status}`);
       err.errors = data.errors;
+      err.fieldErrors =
+        data.errors && typeof data.errors === "object" && !Array.isArray(data.errors)
+          ? data.errors
+          : {};
       err.devOtp = data.devOtp;
       throw err;
     }
@@ -88,6 +96,10 @@ export const api = {
       handleAuthError(res);
       const err = new Error(data.message || `Request failed with status ${res.status}`);
       err.errors = data.errors;
+      err.fieldErrors =
+        data.errors && typeof data.errors === "object" && !Array.isArray(data.errors)
+          ? data.errors
+          : {};
       err.devOtp = data.devOtp;
       throw err;
     }

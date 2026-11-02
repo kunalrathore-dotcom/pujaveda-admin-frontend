@@ -8,9 +8,8 @@ export const isValidEmail = (email) => {
 };
 
 export const isValidPhone = (phone) => {
-  if (!phone) return true; // optional
-  const cleaned = String(phone).replace(/[\s\-()]/g, "");
-  return /^(\+91)?[6-9]\d{9}$/.test(cleaned);
+  if (!phone || typeof phone !== "string") return false;
+  return /^(?:\+91[\-\s]?)?[6-9]\d{9}$/.test(phone.trim());
 };
 
 export const isValidObjectId = (id) => {
@@ -21,3 +20,4 @@ export const isValidObjectId = (id) => {
 export const sanitizeString = (val) => {
   return typeof val === "string" ? val.trim() : "";
 };
+

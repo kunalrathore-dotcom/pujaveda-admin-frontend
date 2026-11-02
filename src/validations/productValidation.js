@@ -47,3 +47,4 @@ export const validateProductForm = (form) => {
     errors,
   };
 };
+

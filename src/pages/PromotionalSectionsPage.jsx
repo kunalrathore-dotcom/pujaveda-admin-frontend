@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { promotionalSectionService } from "../services/promotionalSectionService";
 import { uploadService } from "../services/uploadService";
+import { resolveImageUrl } from "../utils/imageHelper";
 
 const blank = {
   title: "",
@@ -95,7 +96,7 @@ export default function PromotionalSectionsPage() {
       setForm((prev) => ({
         ...prev,
         imageUrl: res.url,
-        imageId: res.public_id || "",
+        imageId: res.publicId || res.public_id || "",
       }));
     } catch (err) {
       setError(err.message || "Failed to upload image.");
@@ -238,7 +239,7 @@ export default function PromotionalSectionsPage() {
             >
               <div className="relative aspect-[16/9] w-full overflow-hidden bg-neutral-100">
                 <img
-                  src={card.imageUrl}
+                  src={resolveImageUrl(card.imageUrl)}
                   alt={card.title}
                   className="h-full w-full object-cover"
                 />
@@ -382,7 +383,7 @@ export default function PromotionalSectionsPage() {
                   {form.imageUrl ? (
                     <div className="relative h-28 w-44 rounded-xl overflow-hidden border border-[#EEDBC5] shrink-0 bg-neutral-100">
                       <img
-                        src={form.imageUrl}
+                        src={resolveImageUrl(form.imageUrl)}
                         alt="Preview"
                         className="h-full w-full object-cover"
                       />
@@ -567,7 +568,7 @@ export default function PromotionalSectionsPage() {
                 <div className="relative overflow-hidden rounded-2xl border border-[#EEDBC5] bg-[#FFF8EE] shadow-sm min-h-[160px] flex flex-col justify-end p-4">
                   {form.imageUrl && (
                     <img
-                      src={form.imageUrl}
+                      src={resolveImageUrl(form.imageUrl)}
                       alt="Preview"
                       className="absolute inset-0 h-full w-full object-cover opacity-60"
                     />

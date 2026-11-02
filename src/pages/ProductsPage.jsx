@@ -21,6 +21,7 @@ import { productService } from "../services/productService";
 import { categoryService } from "../services/categoryService";
 import { couponService } from "../services/couponService";
 import { uploadService } from "../services/uploadService";
+import { resolveImageUrl } from "../utils/imageHelper";
 
 const emptyForm = {
   name: "",
@@ -530,7 +531,7 @@ export default function ProductsPage() {
               <tbody className="divide-y divide-[#EEDBC5]">
                 {filteredProducts.map((p) => {
                   const pid = p._id || p.id;
-                  const displayImg = p.primaryImage || p.images?.[0] || "";
+                  const displayImg = resolveImageUrl(p.primaryImage || p.images?.[0] || "");
                   const imgCount = p.images?.length || 0;
 
                   return (
@@ -859,7 +860,7 @@ export default function ProductsPage() {
                           }`}
                         >
                           <img
-                            src={img}
+                            src={resolveImageUrl(img)}
                             alt={`Product view ${idx + 1}`}
                             className="h-24 w-full object-contain rounded-lg"
                           />

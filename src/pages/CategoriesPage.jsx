@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { categoryService } from "../services/categoryService";
 import { uploadService } from "../services/uploadService";
+import { resolveImageUrl } from "../utils/imageHelper";
 
 const MIN_NAME = 2;
 const MAX_NAME = 50;
@@ -518,7 +519,7 @@ export default function CategoriesPage() {
                     <td className="px-4 py-4">
                       {category.image ? (
                         <img
-                          src={category.image}
+                          src={resolveImageUrl(category.image)}
                           alt={category.name}
                           className="h-10 w-10 rounded-xl border border-neutral-200 object-cover"
                         />
@@ -774,7 +775,7 @@ export default function CategoriesPage() {
                     {imagePreview ? (
                       <div className="relative h-16 w-16 overflow-hidden rounded-xl border border-neutral-200">
                         <img
-                          src={imagePreview}
+                          src={resolveImageUrl(imagePreview)}
                           alt="Category preview"
                           className="h-full w-full object-cover"
                         />
@@ -862,7 +863,7 @@ export default function CategoriesPage() {
             <div className="flex items-center gap-3 rounded-xl bg-rose-50 p-4">
               {viewCategory.image ? (
                 <img
-                  src={viewCategory.image}
+                  src={resolveImageUrl(viewCategory.image)}
                   alt={viewCategory.name}
                   className="h-12 w-12 rounded-xl border border-neutral-200 object-cover"
                 />

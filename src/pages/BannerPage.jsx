@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { bannerService, MAX_BANNERS } from "../services/bannerService";
 import { uploadService } from "../services/uploadService";
+import { resolveImageUrl } from "../utils/imageHelper";
 
 const blank = {
   title: "",
@@ -268,7 +269,7 @@ export default function BannersPage() {
           >
             <div className="relative aspect-[16/9] w-full overflow-hidden bg-[#FAF5ED]">
               <img
-                src={banner.imageUrl}
+                src={resolveImageUrl(banner.imageUrl)}
                 alt={banner.title}
                 className="h-full w-full object-cover"
               />
@@ -462,7 +463,7 @@ export default function BannersPage() {
                 {form.imageUrl && (
                   <div className="mt-3 overflow-hidden rounded-xl border border-[#EEDBC5]">
                     <img
-                      src={form.imageUrl}
+                      src={resolveImageUrl(form.imageUrl)}
                       alt="Banner preview"
                       className="aspect-[16/9] w-full object-cover"
                     />

@@ -13,6 +13,7 @@ import {
   Activity,
   Sparkles,
   ChevronDown,
+  IndianRupee,
 } from "lucide-react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAdminAuth } from "../context/AdminAuthContext";
@@ -26,6 +27,7 @@ const links = [
   { label: "Banners", to: "/banners", icon: Images },
   { label: "Promotional Sections", to: "/promotional-sections", icon: Sparkles },
   { label: "Orders", to: "/orders", icon: ShoppingBag },
+  { label: "Earnings", to: "/earnings", icon: IndianRupee },
   { label: "Customers", to: "/customers", icon: Users },
   { label: "Coupons", to: "/coupons", icon: TicketPercent },
   { label: "Tax & Fees", to: "/taxes", icon: Receipt },

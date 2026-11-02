@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
 import {
   History,
@@ -447,34 +448,53 @@ export default function AuditLogsPage() {
 
                       {/* User Info */}
                       <td className="px-5 py-3.5">
-                        {log.user ? (
-                          <div>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                openUserTimeline(log.user, {
-                                  _id: log.user,
-                                  name: log.userName,
-                                  email: log.userEmail,
-                                })
-                              }
-                              className="group flex items-center gap-1 font-semibold text-neutral-900 hover:text-[#5C0F17]"
-                            >
-                              <span>{log.userName || "Customer"}</span>
-                              <ExternalLink size={12} className="opacity-0 group-hover:opacity-100" />
-                            </button>
-                            <p className="text-xs text-neutral-400">{log.userEmail}</p>
-                          </div>
-                        ) : (
-                          <div>
-                            <span className="font-medium text-neutral-700">
-                              {log.userName || "Guest / Anonymous"}
-                            </span>
-                            {log.userEmail && (
-                              <p className="text-xs text-neutral-400">{log.userEmail}</p>
-                            )}
-                          </div>
-                        )}
+                        {(() => {
+                          const resolvedUserId = log.userId || (typeof log.user === "object" ? log.user?._id : log.user);
+                          const isAvailable = log.isUserAvailable ?? Boolean(resolvedUserId);
+
+                          if (resolvedUserId && isAvailable) {
+                            return (
+                              <div>
+                                <Link
+                                  to={`/customers/${resolvedUserId}`}
+                                  className="group inline-flex items-center gap-1.5 font-bold text-[#5C0F17] hover:underline"
+                                  title="View Customer Profile & Details"
+                                >
+                                  <span>{log.userRef?.name || log.userName || "Customer"}</span>
+                                  <ExternalLink size={12} className="text-[#DA9B26] opacity-70 group-hover:opacity-100" />
+                                </Link>
+                                <p className="text-xs text-neutral-400">{log.userRef?.email || log.userEmail}</p>
+                              </div>
+                            );
+                          }
+
+                          if (resolvedUserId && !isAvailable) {
+                            return (
+                              <div>
+                                <span className="font-semibold text-neutral-600 line-through">
+                                  {log.userName || "Customer"}
+                                </span>
+                                <span className="ml-1.5 inline-block rounded-md bg-neutral-100 px-1.5 py-0.5 text-[10px] font-medium text-neutral-500">
+                                  Customer unavailable
+                                </span>
+                                {log.userEmail && (
+                                  <p className="text-xs text-neutral-400">{log.userEmail}</p>
+                                )}
+                              </div>
+                            );
+                          }
+
+                          return (
+                            <div>
+                              <span className="font-medium text-neutral-700">
+                                {log.userName || "Guest / Anonymous"}
+                              </span>
+                              {log.userEmail && (
+                                <p className="text-xs text-neutral-400">{log.userEmail}</p>
+                              )}
+                            </div>
+                          );
+                        })()}
                       </td>
 
                       {/* Category */}

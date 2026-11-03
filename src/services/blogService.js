@@ -1,14 +1,7 @@
 import { api } from "./api";
 
-export const BLOG_CATEGORIES = [
-  "Puja Guides",
-  "Festival Guides",
-  "Product Knowledge",
-  "Home Mandir Ideas",
-  "Spiritual Lifestyle",
-];
-
 export const blogService = {
+  // Articles
   async getAll({ page = 1, limit = 10, search = "", category = "", status = "all" } = {}) {
     const params = new URLSearchParams();
     if (page) params.append("page", String(page));
@@ -47,11 +40,31 @@ export const blogService = {
     return data;
   },
 
+  // Categories
   async getCategories() {
     const data = await api.get("/blog/categories");
     return data.categories || [];
   },
+
+  async getAdminCategories() {
+    const data = await api.get("/admin/blog/categories");
+    return data.categories || [];
+  },
+
+  async createCategory(categoryData) {
+    const data = await api.post("/admin/blog/categories", categoryData);
+    return data;
+  },
+
+  async updateCategory(id, categoryData) {
+    const data = await api.put(`/admin/blog/categories/${id}`, categoryData);
+    return data;
+  },
+
+  async deleteCategory(id) {
+    const data = await api.delete(`/admin/blog/categories/${id}`);
+    return data;
+  },
 };
 
 export default blogService;
-

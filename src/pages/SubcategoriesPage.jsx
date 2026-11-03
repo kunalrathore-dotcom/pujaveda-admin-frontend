@@ -58,8 +58,11 @@ export default function SubcategoriesPage() {
   const load = async () => {
     setLoading(true);
     try {
-      const result = await categoryService.getAll({ isDeleted: "all" });
-      setCategories(result);
+      const result = await categoryService.getAll();
+      const activeOnly = (Array.isArray(result) ? result : []).filter(
+        (c) => c && c.isDeleted !== true
+      );
+      setCategories(activeOnly);
       setError("");
     } catch (err) {
       setError(err.message || "Unable to load subcategories.");
@@ -74,19 +77,23 @@ export default function SubcategoriesPage() {
 
   const subcategories = useMemo(
     () =>
-      categories.flatMap((category) => {
-        const catId = category._id || category.id;
-        return (category.subcategories || []).map((subcategory) => {
-          const subId = subcategory._id || subcategory.id;
-          return {
-            ...subcategory,
-            id: subId,
-            _id: subId,
-            categoryId: catId,
-            categoryName: category.name,
-          };
-        });
-      }),
+      (categories || [])
+        .filter((cat) => cat && cat.isDeleted !== true)
+        .flatMap((category) => {
+          const catId = category._id || category.id;
+          return (category.subcategories || [])
+            .filter((subcategory) => subcategory && subcategory.isDeleted !== true)
+            .map((subcategory) => {
+              const subId = subcategory._id || subcategory.id;
+              return {
+                ...subcategory,
+                id: subId,
+                _id: subId,
+                categoryId: catId,
+                categoryName: category.name,
+              };
+            });
+        }),
     [categories],
   );
 

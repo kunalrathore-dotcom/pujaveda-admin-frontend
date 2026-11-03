@@ -3,7 +3,6 @@ import {
   BookOpen,
   Plus,
   Search,
-  Filter,
   Eye,
   Edit3,
   Trash2,
@@ -27,15 +26,18 @@ import {
   Minus,
   RefreshCw,
   FileText,
+  Tags,
+  ShieldAlert,
 } from "lucide-react";
-import { blogService, BLOG_CATEGORIES } from "../services/blogService";
+import { blogService } from "../services/blogService";
 import { uploadService } from "../services/uploadService";
 import { resolveImageUrl } from "../utils/imageHelper";
 
-const INITIAL_FORM = {
+const INITIAL_ARTICLE_FORM = {
   title: "",
   slug: "",
   category: "",
+  categoryId: null,
   shortDescription: "",
   coverImage: "",
   content: "",
@@ -44,7 +46,14 @@ const INITIAL_FORM = {
   status: "draft",
 };
 
-// Helper to slugify a title string
+const INITIAL_CATEGORY_FORM = {
+  name: "",
+  slug: "",
+  description: "",
+  order: 0,
+};
+
+// Helper to slugify a title or category name
 const generateSlug = (text) =>
   (text || "")
     .toLowerCase()
@@ -54,7 +63,12 @@ const generateSlug = (text) =>
     .replace(/^-+|-+$/g, "");
 
 export default function BlogPage() {
+  // Active Main Tab: "articles" | "categories"
+  const [activeTab, setActiveTab] = useState("articles");
+
+  // Articles State
   const [articles, setArticles] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [successMessage, setSuccessMessage] = useState("");
@@ -67,22 +81,45 @@ export default function BlogPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [summary, setSummary] = useState({ total: 0, totalPublished: 0, totalDrafts: 0 });
 
-  // Modal / Form States
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  // Article Modal / Form States
+  const [isArticleModalOpen, setIsArticleModalOpen] = useState(false);
   const [editingArticle, setEditingArticle] = useState(null);
-  const [formData, setFormData] = useState(INITIAL_FORM);
-  const [fieldErrors, setFieldErrors] = useState({});
-  const [formSubmitting, setFormSubmitting] = useState(false);
-  const [autoSlug, setAutoSlug] = useState(true);
-  const [contentTab, setContentTab] = useState("edit"); // "edit" | "preview"
+  const [articleFormData, setArticleFormData] = useState(INITIAL_ARTICLE_FORM);
+  const [articleFieldErrors, setArticleFieldErrors] = useState({});
+  const [articleSubmitting, setArticleSubmitting] = useState(false);
+  const [autoArticleSlug, setAutoArticleSlug] = useState(true);
+  const [contentTab, setContentTab] = useState("edit");
   const [uploadingCover, setUploadingCover] = useState(false);
   const contentTextareaRef = useRef(null);
 
-  // Delete Confirmation State
+  // Article Delete Confirmation
   const [deletingArticle, setDeletingArticle] = useState(null);
-  const [isDeleting, setIsDeleting] = useState(false);
+  const [isDeletingArticle, setIsDeletingArticle] = useState(false);
 
-  // Fetch articles from backend
+  // Category Modal / Form States
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+  const [editingCategory, setEditingCategory] = useState(null);
+  const [categoryFormData, setCategoryFormData] = useState(INITIAL_CATEGORY_FORM);
+  const [categoryFieldErrors, setCategoryFieldErrors] = useState({});
+  const [categorySubmitting, setCategorySubmitting] = useState(false);
+  const [autoCategorySlug, setAutoCategorySlug] = useState(true);
+
+  // Category Delete & Block States
+  const [deletingCategory, setDeletingCategory] = useState(null);
+  const [blockedCategoryDelete, setBlockedCategoryDelete] = useState(null);
+  const [isDeletingCategory, setIsDeletingCategory] = useState(false);
+
+  // 1. Fetch Categories
+  const fetchCategories = async () => {
+    try {
+      const cats = await blogService.getAdminCategories();
+      setCategories(cats || []);
+    } catch (err) {
+      console.error("Fetch blog categories error:", err);
+    }
+  };
+
+  // 2. Fetch Articles
   const fetchArticles = async () => {
     try {
       setLoading(true);
@@ -113,8 +150,14 @@ export default function BlogPage() {
   };
 
   useEffect(() => {
-    fetchArticles();
-  }, [page, categoryFilter, statusFilter]);
+    fetchCategories();
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === "articles") {
+      fetchArticles();
+    }
+  }, [page, categoryFilter, statusFilter, activeTab]);
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
@@ -122,30 +165,26 @@ export default function BlogPage() {
     fetchArticles();
   };
 
-  const handleResetFilters = () => {
-    setSearch("");
-    setCategoryFilter("");
-    setStatusFilter("all");
-    setPage(1);
-  };
+  // ==========================================================================
+  // ARTICLE CRUD HANDLERS
+  // ==========================================================================
 
-  // Open Create Modal
-  const openCreateModal = () => {
+  const openCreateArticleModal = () => {
     setEditingArticle(null);
-    setFormData(INITIAL_FORM);
-    setFieldErrors({});
-    setAutoSlug(true);
+    setArticleFormData(INITIAL_ARTICLE_FORM);
+    setArticleFieldErrors({});
+    setAutoArticleSlug(true);
     setContentTab("edit");
-    setIsModalOpen(true);
+    setIsArticleModalOpen(true);
   };
 
-  // Open Edit Modal
-  const openEditModal = (article) => {
+  const openEditArticleModal = (article) => {
     setEditingArticle(article);
-    setFormData({
+    setArticleFormData({
       title: article.title || "",
       slug: article.slug || "",
       category: article.category || "",
+      categoryId: article.categoryId || null,
       shortDescription: article.shortDescription || "",
       coverImage: article.coverImage || "",
       content: article.content || "",
@@ -153,32 +192,31 @@ export default function BlogPage() {
       seoDescription: article.seoDescription || "",
       status: article.status || "draft",
     });
-    setFieldErrors({});
-    setAutoSlug(false);
+    setArticleFieldErrors({});
+    setAutoArticleSlug(false);
     setContentTab("edit");
-    setIsModalOpen(true);
+    setIsArticleModalOpen(true);
   };
 
-  const closeModal = () => {
-    setIsModalOpen(false);
+  const closeArticleModal = () => {
+    setIsArticleModalOpen(false);
     setEditingArticle(null);
-    setFormData(INITIAL_FORM);
-    setFieldErrors({});
-    setFormSubmitting(false);
+    setArticleFormData(INITIAL_ARTICLE_FORM);
+    setArticleFieldErrors({});
+    setArticleSubmitting(false);
   };
 
-  // Handle Input Changes with Error Clearing & Auto-slug
-  const handleInputChange = (field, value) => {
-    setFormData((prev) => {
+  const handleArticleInputChange = (field, value) => {
+    setArticleFormData((prev) => {
       const updated = { ...prev, [field]: value };
-      if (field === "title" && autoSlug && !editingArticle) {
+      if (field === "title" && autoArticleSlug && !editingArticle) {
         updated.slug = generateSlug(value);
       }
       return updated;
     });
 
-    if (fieldErrors[field]) {
-      setFieldErrors((prev) => {
+    if (articleFieldErrors[field]) {
+      setArticleFieldErrors((prev) => {
         const copy = { ...prev };
         delete copy[field];
         return copy;
@@ -186,7 +224,6 @@ export default function BlogPage() {
     }
   };
 
-  // Cover Image Upload Handler
   const handleCoverUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -195,11 +232,11 @@ export default function BlogPage() {
       setUploadingCover(true);
       const res = await uploadService.uploadImage(file, "blog");
       if (res && res.url) {
-        handleInputChange("coverImage", res.url);
+        handleArticleInputChange("coverImage", res.url);
       }
     } catch (err) {
       console.error("Cover upload error:", err);
-      setFieldErrors((prev) => ({
+      setArticleFieldErrors((prev) => ({
         ...prev,
         coverImage: err.message || "Failed to upload image. JPG, PNG, and WebP up to 5MB allowed.",
       }));
@@ -208,112 +245,98 @@ export default function BlogPage() {
     }
   };
 
-  // Content Toolbar Actions (Insert Markdown / HTML snippets)
   const insertContentSnippet = (before, after = "") => {
     const textarea = contentTextareaRef.current;
     if (!textarea) return;
 
     const start = textarea.selectionStart;
     const end = textarea.selectionEnd;
-    const current = formData.content || "";
+    const current = articleFormData.content || "";
     const selected = current.substring(start, end);
+    const replacement = `${before}${selected || "text"}${after}`;
+    const nextContent = current.substring(0, start) + replacement + current.substring(end);
 
-    const replacement = `${before}${selected || "Sample text"}${after}`;
-    const newContent = current.substring(0, start) + replacement + current.substring(end);
-
-    handleInputChange("content", newContent);
+    handleArticleInputChange("content", nextContent);
 
     setTimeout(() => {
       textarea.focus();
-      textarea.setSelectionRange(
-        start + before.length,
-        start + before.length + (selected ? selected.length : "Sample text".length)
-      );
-    }, 10);
+      textarea.setSelectionRange(start + before.length, start + before.length + (selected ? selected.length : 4));
+    }, 50);
   };
 
-  // Insert Image in content via prompt or upload
-  const handleInsertImage = async () => {
-    const url = prompt("Enter image URL (e.g. from /uploads or external HTTPS link):");
-    if (url && url.trim()) {
-      insertContentSnippet(`<img src="${url.trim()}" alt="Article Illustration" class="rounded-xl my-4 shadow-sm w-full" />\n`);
-    }
-  };
-
-  // Insert Link in content
-  const handleInsertLink = () => {
-    const url = prompt("Enter URL:", "https://");
-    if (url && url.trim()) {
-      insertContentSnippet(`<a href="${url.trim()}" class="text-[#DA9B26] font-semibold underline hover:text-[#5C0F17]" target="_blank">`, "</a>");
-    }
-  };
-
-  // Form Validation
-  const validateForm = () => {
+  const validateArticleForm = () => {
     const errors = {};
-    if (!formData.title.trim()) {
+    const title = (articleFormData.title || "").trim();
+    const slug = (articleFormData.slug || "").trim();
+    const category = (articleFormData.category || "").trim();
+    const shortDesc = (articleFormData.shortDescription || "").trim();
+    const cover = (articleFormData.coverImage || "").trim();
+    const content = (articleFormData.content || "").trim();
+
+    if (!title) {
       errors.title = "Article title is required.";
-    } else if (formData.title.trim().length < 2) {
-      errors.title = "Article title must be at least 2 characters.";
-    } else if (formData.title.trim().length > 80) {
-      errors.title = "Article title cannot exceed 80 characters.";
+    } else if (title.length < 2) {
+      errors.title = "Title must be at least 2 characters.";
+    } else if (title.length > 80) {
+      errors.title = "Title cannot exceed 80 characters.";
     }
 
-    if (!formData.slug.trim()) {
+    const slugRegex = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+    if (!slug) {
       errors.slug = "Slug is required.";
-    } else if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(formData.slug.trim())) {
-      errors.slug = "Slug must contain only lowercase letters, numbers, and hyphens without spaces.";
-    } else if (formData.slug.trim().length > 100) {
+    } else if (slug.length < 2) {
+      errors.slug = "Slug must be at least 2 characters.";
+    } else if (slug.length > 100) {
       errors.slug = "Slug cannot exceed 100 characters.";
+    } else if (!slugRegex.test(slug)) {
+      errors.slug = "Slug can only contain lowercase letters, numbers, and single hyphens.";
     }
 
-    if (!formData.category.trim()) {
-      errors.category = "Please select a valid category.";
-    } else if (!BLOG_CATEGORIES.includes(formData.category.trim())) {
-      errors.category = "Please select a valid approved category.";
+    if (!category) {
+      errors.category = "Please select or assign a category.";
     }
 
-    if (!formData.shortDescription.trim()) {
+    if (!shortDesc) {
       errors.shortDescription = "Short description is required.";
-    } else if (formData.shortDescription.trim().length < 5) {
+    } else if (shortDesc.length < 5) {
       errors.shortDescription = "Short description must be at least 5 characters.";
-    } else if (formData.shortDescription.trim().length > 180) {
+    } else if (shortDesc.length > 180) {
       errors.shortDescription = "Short description cannot exceed 180 characters.";
     }
 
-    if (!formData.coverImage.trim()) {
-      errors.coverImage = "Cover image is required.";
+    if (!cover) {
+      errors.coverImage = "Cover image is required. Upload an image or provide a valid URL.";
     }
 
-    if (!formData.content.trim()) {
+    if (!content) {
       errors.content = "Article content is required.";
-    } else if (formData.content.trim().length < 10) {
+    } else if (content.length < 10) {
       errors.content = "Article content must be at least 10 characters.";
-    } else if (formData.content.trim().length > 20000) {
-      errors.content = "Article content cannot exceed 20,000 characters.";
     }
 
-    if (formData.seoTitle && formData.seoTitle.trim().length > 70) {
-      errors.seoTitle = "SEO title cannot exceed 70 characters.";
-    }
-
-    if (formData.seoDescription && formData.seoDescription.trim().length > 160) {
-      errors.seoDescription = "SEO description cannot exceed 160 characters.";
-    }
-
-    setFieldErrors(errors);
+    setArticleFieldErrors(errors);
     return Object.keys(errors).length === 0;
   };
 
-  // Submit Handler (Create or Update)
-  const handleSubmit = async (targetStatus) => {
-    if (!validateForm()) return;
+  const handleArticleFormSubmit = async (e) => {
+    e.preventDefault();
+    if (!validateArticleForm()) return;
 
     try {
-      setFormSubmitting(true);
+      setArticleSubmitting(true);
+      setError(null);
+
       const payload = {
-        ...formData,
-        status: targetStatus || formData.status,
+        title: articleFormData.title.trim(),
+        slug: articleFormData.slug.trim().toLowerCase(),
+        category: articleFormData.category.trim(),
+        categoryId: articleFormData.categoryId || null,
+        shortDescription: articleFormData.shortDescription.trim(),
+        coverImage: articleFormData.coverImage.trim(),
+        content: articleFormData.content.trim(),
+        seoTitle: (articleFormData.seoTitle || "").trim(),
+        seoDescription: (articleFormData.seoDescription || "").trim(),
+        status: articleFormData.status,
       };
 
       if (editingArticle) {
@@ -321,33 +344,32 @@ export default function BlogPage() {
         setSuccessMessage(`Article "${payload.title}" updated successfully.`);
       } else {
         await blogService.create(payload);
-        setSuccessMessage(`Article "${payload.title}" created successfully as ${payload.status}.`);
+        setSuccessMessage(`Article "${payload.title}" published successfully.`);
       }
 
-      closeModal();
+      closeArticleModal();
       fetchArticles();
-      setTimeout(() => setSuccessMessage(""), 5000);
+      fetchCategories();
+      setTimeout(() => setSuccessMessage(""), 4000);
     } catch (err) {
       console.error("Save article error:", err);
-      if (err.fieldErrors) {
-        setFieldErrors(err.fieldErrors);
+      if (err.data && typeof err.data === "object") {
+        setArticleFieldErrors(err.data);
       } else {
         setError(err.message || "Failed to save blog article.");
       }
     } finally {
-      setFormSubmitting(false);
+      setArticleSubmitting(false);
     }
   };
 
-  // Toggle Status (Publish / Unpublish)
   const handleToggleStatus = async (article) => {
-    const newStatus = article.status === "published" ? "draft" : "published";
+    const nextStatus = article.status === "published" ? "draft" : "published";
     try {
-      await blogService.updateStatus(article._id, newStatus);
-      setSuccessMessage(
-        `Article "${article.title}" is now ${newStatus === "published" ? "Published live" : "saved as Draft"}.`
-      );
+      await blogService.updateStatus(article._id, nextStatus);
+      setSuccessMessage(`Article status changed to ${nextStatus}.`);
       fetchArticles();
+      fetchCategories();
       setTimeout(() => setSuccessMessage(""), 4000);
     } catch (err) {
       console.error("Toggle status error:", err);
@@ -355,21 +377,176 @@ export default function BlogPage() {
     }
   };
 
-  // Soft Delete Article
-  const handleConfirmDelete = async () => {
+  const handleConfirmDeleteArticle = async () => {
     if (!deletingArticle) return;
     try {
-      setIsDeleting(true);
+      setIsDeletingArticle(true);
       await blogService.delete(deletingArticle._id);
       setSuccessMessage(`Article "${deletingArticle.title}" archived successfully.`);
       setDeletingArticle(null);
       fetchArticles();
+      fetchCategories();
       setTimeout(() => setSuccessMessage(""), 4000);
     } catch (err) {
       console.error("Delete article error:", err);
       setError(err.message || "Failed to delete article.");
     } finally {
-      setIsDeleting(false);
+      setIsDeletingArticle(false);
+    }
+  };
+
+  // ==========================================================================
+  // CATEGORY CRUD HANDLERS
+  // ==========================================================================
+
+  const openCreateCategoryModal = () => {
+    setEditingCategory(null);
+    setCategoryFormData(INITIAL_CATEGORY_FORM);
+    setCategoryFieldErrors({});
+    setAutoCategorySlug(true);
+    setIsCategoryModalOpen(true);
+  };
+
+  const openEditCategoryModal = (cat) => {
+    setEditingCategory(cat);
+    setCategoryFormData({
+      name: cat.name || "",
+      slug: cat.slug || "",
+      description: cat.description || "",
+      order: cat.order || 0,
+    });
+    setCategoryFieldErrors({});
+    setAutoCategorySlug(false);
+    setIsCategoryModalOpen(true);
+  };
+
+  const closeCategoryModal = () => {
+    setIsCategoryModalOpen(false);
+    setEditingCategory(null);
+    setCategoryFormData(INITIAL_CATEGORY_FORM);
+    setCategoryFieldErrors({});
+    setCategorySubmitting(false);
+  };
+
+  const handleCategoryInputChange = (field, value) => {
+    setCategoryFormData((prev) => {
+      const updated = { ...prev, [field]: value };
+      if (field === "name" && autoCategorySlug && !editingCategory) {
+        updated.slug = generateSlug(value);
+      }
+      return updated;
+    });
+
+    if (categoryFieldErrors[field]) {
+      setCategoryFieldErrors((prev) => {
+        const copy = { ...prev };
+        delete copy[field];
+        return copy;
+      });
+    }
+  };
+
+  const validateCategoryForm = () => {
+    const errors = {};
+    const name = (categoryFormData.name || "").trim();
+    const slug = (categoryFormData.slug || "").trim();
+    const desc = (categoryFormData.description || "").trim();
+
+    if (!name) {
+      errors.name = "Category name is required.";
+    } else if (name.length < 2) {
+      errors.name = "Category name must be at least 2 characters.";
+    } else if (name.length > 40) {
+      errors.name = "Category name cannot exceed 40 characters.";
+    }
+
+    const slugRegex = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+    if (!slug) {
+      errors.slug = "Slug is required.";
+    } else if (slug.length < 2) {
+      errors.slug = "Slug must be at least 2 characters.";
+    } else if (slug.length > 60) {
+      errors.slug = "Slug cannot exceed 60 characters.";
+    } else if (!slugRegex.test(slug)) {
+      errors.slug = "Slug can only contain lowercase letters, numbers, and single hyphens.";
+    }
+
+    if (desc.length > 150) {
+      errors.description = "Description cannot exceed 150 characters.";
+    }
+
+    setCategoryFieldErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const handleCategoryFormSubmit = async (e) => {
+    e.preventDefault();
+    if (!validateCategoryForm()) return;
+
+    try {
+      setCategorySubmitting(true);
+      setError(null);
+
+      const payload = {
+        name: categoryFormData.name.trim(),
+        slug: categoryFormData.slug.trim().toLowerCase(),
+        description: (categoryFormData.description || "").trim(),
+        order: Number(categoryFormData.order) || 0,
+      };
+
+      if (editingCategory) {
+        await blogService.updateCategory(editingCategory._id, payload);
+        setSuccessMessage(`Category "${payload.name}" updated successfully.`);
+      } else {
+        await blogService.createCategory(payload);
+        setSuccessMessage(`Category "${payload.name}" created successfully.`);
+      }
+
+      closeCategoryModal();
+      fetchCategories();
+      fetchArticles();
+      setTimeout(() => setSuccessMessage(""), 4000);
+    } catch (err) {
+      console.error("Save category error:", err);
+      if (err.data && typeof err.data === "object") {
+        setCategoryFieldErrors(err.data);
+      } else {
+        setError(err.message || "Failed to save category.");
+      }
+    } finally {
+      setCategorySubmitting(false);
+    }
+  };
+
+  // Safe Category Delete Initiation
+  const handleDeleteCategoryClick = (cat) => {
+    const articleCount = cat.articleCount || 0;
+    if (articleCount > 0) {
+      // Invariant: Cannot delete category with active articles
+      setBlockedCategoryDelete({
+        name: cat.name,
+        count: articleCount,
+      });
+    } else {
+      setDeletingCategory(cat);
+    }
+  };
+
+  const handleConfirmDeleteCategory = async () => {
+    if (!deletingCategory) return;
+    try {
+      setIsDeletingCategory(true);
+      await blogService.deleteCategory(deletingCategory._id);
+      setSuccessMessage(`Category "${deletingCategory.name}" removed successfully.`);
+      setDeletingCategory(null);
+      fetchCategories();
+      fetchArticles();
+      setTimeout(() => setSuccessMessage(""), 4000);
+    } catch (err) {
+      console.error("Delete category error:", err);
+      setError(err.message || "Failed to delete category.");
+    } finally {
+      setIsDeletingCategory(false);
     }
   };
 
@@ -379,23 +556,35 @@ export default function BlogPage() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <div className="flex items-center gap-2">
-            <BookOpen className="text-[#DA9B26]" size={22} />
+            <BookOpen className="text-[#DA9B26]" size={24} />
             <h1 className="text-xl sm:text-2xl font-black text-neutral-900 tracking-tight">
-              Pujaveda Journal Articles
+              Blog
             </h1>
           </div>
           <p className="mt-1 text-xs text-neutral-500 font-medium">
-            Manage editorial articles, sacred guides, and Vedic knowledge publications.
+            Manage editorial articles, sacred guides, and blog categories.
           </p>
         </div>
 
-        <button
-          type="button"
-          onClick={openCreateModal}
-          className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#5C0F17] px-4 py-2.5 text-xs font-bold text-[#FFFDF9] hover:bg-[#4A0D15] shadow-sm transition active:scale-95"
-        >
-          <Plus size={16} /> Write New Article
-        </button>
+        <div className="flex items-center gap-3">
+          {activeTab === "articles" ? (
+            <button
+              type="button"
+              onClick={openCreateArticleModal}
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#5C0F17] px-4 py-2.5 text-xs font-bold text-[#FFFDF9] hover:bg-[#4A0D15] shadow-sm transition active:scale-95"
+            >
+              <Plus size={16} /> Write New Article
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={openCreateCategoryModal}
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#5C0F17] px-4 py-2.5 text-xs font-bold text-[#FFFDF9] hover:bg-[#4A0D15] shadow-sm transition active:scale-95"
+            >
+              <Plus size={16} /> Add Category
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Success Notification Banner */}
@@ -432,296 +621,439 @@ export default function BlogPage() {
         </div>
       )}
 
-      {/* 2. Overview Metrics Cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <div className="rounded-2xl border border-neutral-100 bg-white p-5 shadow-xs flex items-center gap-4">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#FAF5ED] text-[#5C0F17] border border-[#DA9B26]/30">
-            <FileText size={22} className="text-[#5C0F17]" />
-          </div>
-          <div>
-            <span className="text-xs font-semibold text-neutral-400 block">Total Articles</span>
-            <span className="text-2xl font-black text-neutral-900 font-mono mt-0.5 block">
-              {summary.total || 0}
-            </span>
-          </div>
-        </div>
+      {/* Segmented Tab Switcher (Articles vs Categories) */}
+      <div className="flex items-center gap-2 border-b border-neutral-200 pb-3">
+        <button
+          type="button"
+          onClick={() => setActiveTab("articles")}
+          className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition shadow-xs ${
+            activeTab === "articles"
+              ? "bg-[#5C0F17] text-white"
+              : "bg-white text-neutral-600 border border-neutral-200 hover:bg-neutral-50"
+          }`}
+        >
+          <FileText size={15} />
+          <span>Articles</span>
+          <span
+            className={`rounded-full px-1.5 py-0.2 text-[10px] font-black ${
+              activeTab === "articles" ? "bg-white/20 text-white" : "bg-neutral-100 text-neutral-600"
+            }`}
+          >
+            {summary.total || articles.length}
+          </span>
+        </button>
 
-        <div className="rounded-2xl border border-neutral-100 bg-white p-5 shadow-xs flex items-center gap-4">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-700 border border-emerald-100">
-            <CheckCircle2 size={22} className="text-emerald-600" />
-          </div>
-          <div>
-            <span className="text-xs font-semibold text-neutral-400 block">Published Live</span>
-            <span className="text-2xl font-black text-neutral-900 font-mono mt-0.5 block">
-              {summary.totalPublished || 0}
-            </span>
-          </div>
-        </div>
-
-        <div className="rounded-2xl border border-neutral-100 bg-white p-5 shadow-xs flex items-center gap-4">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-amber-50 text-amber-700 border border-amber-100">
-            <Clock size={22} className="text-amber-600" />
-          </div>
-          <div>
-            <span className="text-xs font-semibold text-neutral-400 block">Drafts</span>
-            <span className="text-2xl font-black text-neutral-900 font-mono mt-0.5 block">
-              {summary.totalDrafts || 0}
-            </span>
-          </div>
-        </div>
+        <button
+          type="button"
+          onClick={() => setActiveTab("categories")}
+          className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition shadow-xs ${
+            activeTab === "categories"
+              ? "bg-[#5C0F17] text-white"
+              : "bg-white text-neutral-600 border border-neutral-200 hover:bg-neutral-50"
+          }`}
+        >
+          <Tags size={15} />
+          <span>Categories</span>
+          <span
+            className={`rounded-full px-1.5 py-0.2 text-[10px] font-black ${
+              activeTab === "categories" ? "bg-white/20 text-white" : "bg-neutral-100 text-neutral-600"
+            }`}
+          >
+            {categories.length}
+          </span>
+        </button>
       </div>
 
-      {/* 3. Filters Toolbar & Listing Table */}
-      <section className="rounded-3xl border border-neutral-200/80 bg-white shadow-xs overflow-hidden">
-        {/* Search & Filter Controls */}
-        <div className="border-b border-neutral-100 p-5 space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+      {/* ==================================================================== */}
+      {/* TAB 1: ARTICLES VIEW                                                 */}
+      {/* ==================================================================== */}
+      {activeTab === "articles" && (
+        <>
+          {/* Overview Metrics Cards */}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <div className="rounded-2xl border border-neutral-100 bg-white p-5 shadow-xs flex items-center gap-4">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#FAF5ED] text-[#5C0F17] border border-[#DA9B26]/30">
+                <FileText size={22} className="text-[#5C0F17]" />
+              </div>
+              <div>
+                <span className="text-xs font-semibold text-neutral-400 block">Total Articles</span>
+                <span className="text-2xl font-black text-neutral-900 font-mono mt-0.5 block">
+                  {summary.total || 0}
+                </span>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-neutral-100 bg-white p-5 shadow-xs flex items-center gap-4">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-700 border border-emerald-100">
+                <CheckCircle2 size={22} className="text-emerald-600" />
+              </div>
+              <div>
+                <span className="text-xs font-semibold text-neutral-400 block">Published Live</span>
+                <span className="text-2xl font-black text-neutral-900 font-mono mt-0.5 block">
+                  {summary.totalPublished || 0}
+                </span>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-neutral-100 bg-white p-5 shadow-xs flex items-center gap-4">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-amber-50 text-amber-700 border border-amber-100">
+                <Clock size={22} className="text-amber-600" />
+              </div>
+              <div>
+                <span className="text-xs font-semibold text-neutral-400 block">Drafts</span>
+                <span className="text-2xl font-black text-neutral-900 font-mono mt-0.5 block">
+                  {summary.totalDrafts || 0}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Filters Toolbar & Articles Table */}
+          <section className="rounded-3xl border border-neutral-200/80 bg-white shadow-xs overflow-hidden">
+            <div className="border-b border-neutral-100 p-5 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                <div>
+                  <h2 className="text-base font-black text-neutral-900">Articles Catalog</h2>
+                  <p className="text-xs text-neutral-500">
+                    Filter articles by category or publication state.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={fetchArticles}
+                  className="inline-flex items-center gap-1.5 self-start rounded-xl border border-neutral-200 bg-white px-3 py-1.5 text-xs font-semibold text-neutral-700 hover:bg-neutral-50 transition"
+                >
+                  <RefreshCw size={13} className={loading ? "animate-spin" : ""} /> Refresh
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-3 pt-1">
+                <form onSubmit={handleSearchSubmit} className="md:col-span-2 relative">
+                  <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-400" size={15} />
+                  <input
+                    type="text"
+                    maxLength={100}
+                    placeholder="Search articles by title, slug, or keywords..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="w-full rounded-2xl border border-neutral-200 bg-neutral-50 py-2.5 pl-10 pr-4 text-xs font-medium outline-none focus:border-[#5C0F17] focus:bg-white"
+                  />
+                </form>
+
+                <div>
+                  <select
+                    value={categoryFilter}
+                    onChange={(e) => {
+                      setCategoryFilter(e.target.value);
+                      setPage(1);
+                    }}
+                    className="w-full rounded-2xl border border-neutral-200 bg-neutral-50 px-3 py-2.5 text-xs font-medium outline-none focus:border-[#5C0F17] focus:bg-white"
+                  >
+                    <option value="">All Categories</option>
+                    {categories.map((cat) => (
+                      <option key={cat._id || cat.slug} value={cat.name}>
+                        {cat.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <select
+                    value={statusFilter}
+                    onChange={(e) => {
+                      setStatusFilter(e.target.value);
+                      setPage(1);
+                    }}
+                    className="w-full rounded-2xl border border-neutral-200 bg-neutral-50 px-3 py-2.5 text-xs font-medium outline-none focus:border-[#5C0F17] focus:bg-white"
+                  >
+                    <option value="all">All Statuses</option>
+                    <option value="published">Published</option>
+                    <option value="draft">Draft</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            {/* Articles Table */}
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-neutral-100 bg-[#FAF6F0]/60 text-[11px] font-black uppercase tracking-wider text-neutral-500">
+                    <th className="py-3.5 pl-6 pr-4">Article</th>
+                    <th className="py-3.5 px-4">Category</th>
+                    <th className="py-3.5 px-4">Status</th>
+                    <th className="py-3.5 px-4">Published Date</th>
+                    <th className="py-3.5 px-4">Author</th>
+                    <th className="py-3.5 pl-4 pr-6 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-neutral-100 text-xs">
+                  {loading ? (
+                    <tr>
+                      <td colSpan={6} className="py-12 text-center">
+                        <div className="flex flex-col items-center justify-center gap-2">
+                          <RefreshCw className="animate-spin text-[#5C0F17]" size={24} />
+                          <p className="text-xs font-medium text-neutral-400">Loading articles...</p>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : articles.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="py-12 text-center">
+                        <div className="max-w-sm mx-auto space-y-2">
+                          <BookOpen className="mx-auto text-neutral-300" size={32} />
+                          <p className="text-sm font-bold text-neutral-700">No articles found</p>
+                          <p className="text-xs text-neutral-400">
+                            Create your first blog publication to share sacred Vedic wisdom.
+                          </p>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : (
+                    articles.map((art) => (
+                      <tr key={art._id} className="hover:bg-neutral-50/60 transition group">
+                        {/* Article Info */}
+                        <td className="py-4 pl-6 pr-4 max-w-xs">
+                          <div className="flex items-center gap-3">
+                            <img
+                              src={resolveImageUrl(art.coverImage)}
+                              alt={art.title}
+                              className="h-11 w-11 shrink-0 rounded-xl object-cover border border-neutral-200 shadow-xs"
+                              onError={(e) => {
+                                e.target.src = "https://images.unsplash.com/photo-1609137144822-263e8a4a5e3f?w=100&q=80";
+                              }}
+                            />
+                            <div className="truncate">
+                              <p className="font-bold text-neutral-900 group-hover:text-[#5C0F17] transition truncate">
+                                {art.title}
+                              </p>
+                              <p className="text-[11px] font-mono text-neutral-400 truncate">
+                                /blog/{art.slug}
+                              </p>
+                            </div>
+                          </div>
+                        </td>
+
+                        {/* Category */}
+                        <td className="py-4 px-4 whitespace-nowrap">
+                          <span className="inline-block rounded-full bg-[#FAF5ED] border border-[#DA9B26]/30 px-2.5 py-1 text-[11px] font-bold text-[#5C0F17]">
+                            {art.category}
+                          </span>
+                        </td>
+
+                        {/* Status Toggle */}
+                        <td className="py-4 px-4 whitespace-nowrap">
+                          <button
+                            type="button"
+                            onClick={() => handleToggleStatus(art)}
+                            title="Click to toggle status"
+                            className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold transition ${
+                              art.status === "published"
+                                ? "bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100"
+                                : "bg-neutral-100 text-neutral-600 border border-neutral-200 hover:bg-neutral-200"
+                            }`}
+                          >
+                            <span
+                              className={`h-1.5 w-1.5 rounded-full ${
+                                art.status === "published" ? "bg-emerald-500" : "bg-neutral-400"
+                              }`}
+                            />
+                            {art.status === "published" ? "Published" : "Draft"}
+                          </button>
+                        </td>
+
+                        {/* Published Date */}
+                        <td className="py-4 px-4 whitespace-nowrap text-neutral-500 font-mono text-[11px]">
+                          {art.publishedAt
+                            ? new Date(art.publishedAt).toLocaleDateString("en-IN", {
+                                day: "2-digit",
+                                month: "short",
+                                year: "numeric",
+                              })
+                            : "—"}
+                        </td>
+
+                        {/* Author */}
+                        <td className="py-4 px-4 whitespace-nowrap text-neutral-700 font-medium">
+                          {art.author || "Editorial"}
+                        </td>
+
+                        {/* Actions */}
+                        <td className="py-4 pl-4 pr-6 text-right whitespace-nowrap">
+                          <div className="inline-flex items-center gap-1">
+                            {art.status === "published" && (
+                              <a
+                                href={`http://localhost:5173/blog/${art.slug}`}
+                                target="_blank"
+                                rel="noreferrer"
+                                title="View Live Article"
+                                className="flex h-8 w-8 items-center justify-center rounded-xl text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 transition"
+                              >
+                                <ExternalLink size={14} />
+                              </a>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => openEditArticleModal(art)}
+                              title="Edit Article"
+                              className="flex h-8 w-8 items-center justify-center rounded-xl text-neutral-500 hover:bg-[#FAF5ED] hover:text-[#5C0F17] transition"
+                            >
+                              <Edit3 size={14} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setDeletingArticle(art)}
+                              title="Delete Article"
+                              className="flex h-8 w-8 items-center justify-center rounded-xl text-neutral-400 hover:bg-rose-50 hover:text-rose-600 transition"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between border-t border-neutral-100 px-6 py-4">
+                <span className="text-xs text-neutral-500 font-medium">
+                  Page {page} of {totalPages}
+                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    disabled={page <= 1}
+                    onClick={() => setPage((p) => Math.max(p - 1, 1))}
+                    className="flex h-8 w-8 items-center justify-center rounded-xl border border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50 disabled:opacity-40"
+                  >
+                    <ChevronLeft size={16} />
+                  </button>
+                  <button
+                    type="button"
+                    disabled={page >= totalPages}
+                    onClick={() => setPage((p) => Math.min(p + 1, totalPages))}
+                    className="flex h-8 w-8 items-center justify-center rounded-xl border border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50 disabled:opacity-40"
+                  >
+                    <ChevronRight size={16} />
+                  </button>
+                </div>
+              </div>
+            )}
+          </section>
+        </>
+      )}
+
+      {/* ==================================================================== */}
+      {/* TAB 2: CATEGORIES VIEW                                               */}
+      {/* ==================================================================== */}
+      {activeTab === "categories" && (
+        <section className="rounded-3xl border border-neutral-200/80 bg-white shadow-xs overflow-hidden">
+          <div className="border-b border-neutral-100 p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
-              <h2 className="text-base font-black text-neutral-900">Articles Catalog</h2>
+              <h2 className="text-base font-black text-neutral-900">Blog Categories</h2>
               <p className="text-xs text-neutral-500">
-                Filter articles by category or publication state.
+                Manage editorial categories used to organize articles and customer navigation.
               </p>
             </div>
             <button
               type="button"
-              onClick={fetchArticles}
+              onClick={fetchCategories}
               className="inline-flex items-center gap-1.5 self-start rounded-xl border border-neutral-200 bg-white px-3 py-1.5 text-xs font-semibold text-neutral-700 hover:bg-neutral-50 transition"
             >
-              <RefreshCw size={13} className={loading ? "animate-spin" : ""} /> Refresh
+              <RefreshCw size={13} /> Refresh
             </button>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-3 pt-1">
-            <form onSubmit={handleSearchSubmit} className="md:col-span-2 relative">
-              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-400" size={15} />
-              <input
-                type="text"
-                maxLength={100}
-                placeholder="Search articles by title, slug, or keywords..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="w-full rounded-2xl border border-neutral-200 bg-neutral-50 py-2.5 pl-10 pr-4 text-xs font-medium outline-none focus:border-[#5C0F17] focus:bg-white"
-              />
-            </form>
-
-            <div>
-              <select
-                value={categoryFilter}
-                onChange={(e) => {
-                  setCategoryFilter(e.target.value);
-                  setPage(1);
-                }}
-                className="w-full rounded-2xl border border-neutral-200 bg-neutral-50 px-3 py-2.5 text-xs font-medium outline-none focus:border-[#5C0F17] focus:bg-white"
-              >
-                <option value="">All Categories</option>
-                {BLOG_CATEGORIES.map((cat) => (
-                  <option key={cat} value={cat}>
-                    {cat}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <select
-                value={statusFilter}
-                onChange={(e) => {
-                  setStatusFilter(e.target.value);
-                  setPage(1);
-                }}
-                className="w-full rounded-2xl border border-neutral-200 bg-neutral-50 px-3 py-2.5 text-xs font-medium outline-none focus:border-[#5C0F17] focus:bg-white"
-              >
-                <option value="all">All Statuses</option>
-                <option value="published">Published Live</option>
-                <option value="draft">Drafts Only</option>
-              </select>
-            </div>
-          </div>
-        </div>
-
-        {/* Articles Table */}
-        {loading ? (
-          <div className="flex h-64 items-center justify-center">
-            <div className="flex flex-col items-center gap-3">
-              <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#5C0F17] border-t-transparent" />
-              <p className="text-xs font-semibold text-neutral-400">Loading articles...</p>
-            </div>
-          </div>
-        ) : articles.length > 0 ? (
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="border-b border-neutral-100 bg-neutral-50/70 text-neutral-500 font-semibold">
-                <tr>
-                  <th className="px-5 py-4 font-bold whitespace-nowrap">Article</th>
-                  <th className="px-5 py-4 font-bold whitespace-nowrap">Category</th>
-                  <th className="px-5 py-4 font-bold whitespace-nowrap text-center">Status</th>
-                  <th className="px-5 py-4 font-bold whitespace-nowrap">Dates</th>
-                  <th className="px-5 py-4 font-bold whitespace-nowrap text-right">Actions</th>
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="border-b border-neutral-100 bg-[#FAF6F0]/60 text-[11px] font-black uppercase tracking-wider text-neutral-500">
+                  <th className="py-3.5 pl-6 pr-4">Category Name</th>
+                  <th className="py-3.5 px-4">Slug</th>
+                  <th className="py-3.5 px-4">Description</th>
+                  <th className="py-3.5 px-4 text-center">Articles</th>
+                  <th className="py-3.5 pl-4 pr-6 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-neutral-100 font-medium">
-                {articles.map((art) => {
-                  const coverSrc = resolveImageUrl(art.coverImage);
-                  const isPublished = art.status === "published";
-
-                  return (
-                    <tr key={art._id} className="hover:bg-neutral-50/80 transition">
-                      {/* Title & Cover */}
-                      <td className="px-5 py-4 min-w-[280px]">
-                        <div className="flex items-center gap-3">
-                          <img
-                            src={coverSrc}
-                            alt={art.title}
-                            className="h-12 w-16 shrink-0 rounded-xl object-cover border border-neutral-200 bg-neutral-100 shadow-xs"
-                            onError={(e) => {
-                              e.currentTarget.src =
-                                "https://images.unsplash.com/photo-1609358905561-eb8361093120?auto=format&fit=crop&w=200&q=80";
-                            }}
-                          />
-                          <div>
-                            <p className="font-bold text-neutral-900 line-clamp-1 text-sm">
-                              {art.title}
-                            </p>
-                            <p className="font-mono text-[11px] text-neutral-400 mt-0.5 line-clamp-1">
-                              /blog/{art.slug}
-                            </p>
-                          </div>
+              <tbody className="divide-y divide-neutral-100 text-xs">
+                {categories.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="py-12 text-center text-neutral-400">
+                      No blog categories found. Click &quot;Add Category&quot; to create one.
+                    </td>
+                  </tr>
+                ) : (
+                  categories.map((cat) => (
+                    <tr key={cat._id} className="hover:bg-neutral-50/60 transition group">
+                      <td className="py-4 pl-6 pr-4 font-bold text-neutral-900">
+                        <div className="flex items-center gap-2">
+                          <span>{cat.name}</span>
+                          {cat.isDemo && (
+                            <span className="rounded-md bg-amber-50 px-1.5 py-0.5 text-[10px] font-mono text-amber-700 border border-amber-200">
+                              demo
+                            </span>
+                          )}
                         </div>
                       </td>
 
-                      {/* Category */}
-                      <td className="px-5 py-4 whitespace-nowrap">
-                        <span className="rounded-full bg-[#FAF5ED] px-2.5 py-1 text-[11px] font-bold text-[#5C0F17] border border-[#DA9B26]/30">
-                          {art.category}
+                      <td className="py-4 px-4 font-mono text-neutral-500 text-[11px]">
+                        {cat.slug}
+                      </td>
+
+                      <td className="py-4 px-4 max-w-sm text-neutral-600 line-clamp-2">
+                        {cat.description || "—"}
+                      </td>
+
+                      <td className="py-4 px-4 text-center whitespace-nowrap">
+                        <span
+                          className={`inline-flex items-center justify-center rounded-full px-2.5 py-0.5 text-[11px] font-bold ${
+                            (cat.articleCount || 0) > 0
+                              ? "bg-[#5C0F17]/10 text-[#5C0F17] border border-[#5C0F17]/20"
+                              : "bg-neutral-100 text-neutral-400"
+                          }`}
+                        >
+                          {cat.articleCount || 0} articles
                         </span>
                       </td>
 
-                      {/* Status */}
-                      <td className="px-5 py-4 text-center whitespace-nowrap">
-                        <button
-                          type="button"
-                          onClick={() => handleToggleStatus(art)}
-                          title={`Click to ${isPublished ? "unpublish and move to draft" : "publish live"}`}
-                          className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider transition ${
-                            isPublished
-                              ? "bg-emerald-100 text-emerald-800 border border-emerald-200 hover:bg-emerald-200"
-                              : "bg-amber-100 text-amber-800 border border-amber-200 hover:bg-amber-200"
-                          }`}
-                        >
-                          {isPublished ? (
-                            <>
-                              <CheckCircle2 size={12} /> Published
-                            </>
-                          ) : (
-                            <>
-                              <Clock size={12} /> Draft
-                            </>
-                          )}
-                        </button>
-                      </td>
-
-                      {/* Dates */}
-                      <td className="px-5 py-4 whitespace-nowrap text-neutral-500 text-[11px]">
-                        <div>
-                          <span className="text-neutral-400">Created:</span>{" "}
-                          <span className="font-semibold text-neutral-700">
-                            {new Date(art.createdAt).toLocaleDateString("en-IN", {
-                              day: "2-digit",
-                              month: "short",
-                              year: "numeric",
-                            })}
-                          </span>
-                        </div>
-                        {art.publishedAt && (
-                          <div className="mt-0.5">
-                            <span className="text-neutral-400">Published:</span>{" "}
-                            <span className="font-semibold text-emerald-700">
-                              {new Date(art.publishedAt).toLocaleDateString("en-IN", {
-                                day: "2-digit",
-                                month: "short",
-                                year: "numeric",
-                              })}
-                            </span>
-                          </div>
-                        )}
-                      </td>
-
-                      {/* Actions */}
-                      <td className="px-5 py-4 text-right whitespace-nowrap">
-                        <div className="flex items-center justify-end gap-1.5">
+                      <td className="py-4 pl-4 pr-6 text-right whitespace-nowrap">
+                        <div className="inline-flex items-center gap-1">
                           <button
                             type="button"
-                            onClick={() => openEditModal(art)}
-                            className="flex h-8 w-8 items-center justify-center rounded-xl border border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-100 transition shadow-xs"
-                            title="Edit Article"
+                            onClick={() => openEditCategoryModal(cat)}
+                            title="Edit Category"
+                            className="flex h-8 w-8 items-center justify-center rounded-xl text-neutral-500 hover:bg-[#FAF5ED] hover:text-[#5C0F17] transition"
                           >
                             <Edit3 size={14} />
                           </button>
                           <button
                             type="button"
-                            onClick={() => setDeletingArticle(art)}
-                            className="flex h-8 w-8 items-center justify-center rounded-xl border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 transition shadow-xs"
-                            title="Delete Article"
+                            onClick={() => handleDeleteCategoryClick(cat)}
+                            title="Delete Category"
+                            className="flex h-8 w-8 items-center justify-center rounded-xl text-neutral-400 hover:bg-rose-50 hover:text-rose-600 transition"
                           >
                             <Trash2 size={14} />
                           </button>
                         </div>
                       </td>
                     </tr>
-                  );
-                })}
+                  ))
+                )}
               </tbody>
             </table>
           </div>
-        ) : (
-          <div className="p-12 text-center">
-            <BookOpen size={40} className="mx-auto text-neutral-300" />
-            <h3 className="mt-3 text-base font-bold text-neutral-700">No articles found</h3>
-            <p className="mt-1 text-xs text-neutral-400 max-w-sm mx-auto">
-              No blog articles match your current search criteria or category filter.
-            </p>
-            <button
-              type="button"
-              onClick={handleResetFilters}
-              className="mt-4 rounded-xl border border-neutral-200 bg-white px-3.5 py-2 text-xs font-bold text-neutral-700 hover:bg-neutral-50 shadow-xs"
-            >
-              Reset Filters
-            </button>
-          </div>
-        )}
-
-        {/* Pagination */}
-        {totalPages > 1 && (
-          <div className="flex items-center justify-between border-t border-neutral-100 px-5 py-3.5 text-xs font-semibold text-neutral-500">
-            <div>
-              Page {page} of {totalPages}
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                disabled={page <= 1}
-                onClick={() => setPage((p) => Math.max(p - 1, 1))}
-                className="flex h-8 w-8 items-center justify-center rounded-xl border border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50 disabled:opacity-40"
-              >
-                <ChevronLeft size={16} />
-              </button>
-              <button
-                type="button"
-                disabled={page >= totalPages}
-                onClick={() => setPage((p) => Math.min(p + 1, totalPages))}
-                className="flex h-8 w-8 items-center justify-center rounded-xl border border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50 disabled:opacity-40"
-              >
-                <ChevronRight size={16} />
-              </button>
-            </div>
-          </div>
-        )}
-      </section>
+        </section>
+      )}
 
       {/* ============================================================ */}
-      {/* 4. Create / Edit Article Modal                               */}
+      {/* 3. Create / Edit Article Modal                               */}
       {/* ============================================================ */}
-      {isModalOpen && (
+      {isArticleModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 overflow-y-auto">
           <div className="relative w-full max-w-4xl rounded-3xl bg-white shadow-2xl border border-neutral-200 overflow-hidden my-8 max-h-[90vh] flex flex-col">
             {/* Modal Header */}
@@ -734,7 +1066,7 @@ export default function BlogPage() {
               </div>
               <button
                 type="button"
-                onClick={closeModal}
+                onClick={closeArticleModal}
                 className="rounded-xl p-1.5 text-neutral-400 hover:bg-neutral-200 hover:text-neutral-700 transition"
               >
                 <X size={18} />
@@ -743,30 +1075,36 @@ export default function BlogPage() {
 
             {/* Modal Body */}
             <div className="flex-1 overflow-y-auto p-6 space-y-5">
-              {/* Row 1: Title & Character Counter */}
+              {/* Row 1: Title */}
               <div>
                 <div className="flex items-center justify-between mb-1">
                   <label className="text-xs font-bold text-neutral-700">
                     Article Title <span className="text-rose-600">*</span>
                   </label>
-                  <span className={`text-[11px] font-mono ${formData.title.length > 80 ? "text-rose-600 font-bold" : "text-neutral-400"}`}>
-                    {formData.title.length}/80
+                  <span
+                    className={`text-[11px] font-mono ${
+                      articleFormData.title.length > 80 ? "text-rose-600 font-bold" : "text-neutral-400"
+                    }`}
+                  >
+                    {articleFormData.title.length}/80
                   </span>
                 </div>
                 <input
                   type="text"
                   maxLength={80}
                   placeholder="Enter descriptive article title (e.g. Complete Shravan Puja Rituals at Home)"
-                  value={formData.title}
-                  onChange={(e) => handleInputChange("title", e.target.value)}
-                  className={`w-full rounded-2xl border px-3.5 py-2.5 text-xs font-medium outline-none transition ${
-                    fieldErrors.title
+                  value={articleFormData.title}
+                  onChange={(e) => handleArticleInputChange("title", e.target.value)}
+                  className={`w-full rounded-2xl border px-3.5 py-2.5 text-xs font-medium transition ${
+                    articleFieldErrors.title
                       ? "border-rose-500 bg-rose-50/30 text-rose-900"
                       : "border-neutral-200 bg-neutral-50/50 focus:border-[#5C0F17] focus:bg-white"
                   }`}
                 />
-                {fieldErrors.title && (
-                  <p className="mt-1 text-[11px] font-semibold text-rose-600">{fieldErrors.title}</p>
+                {articleFieldErrors.title && (
+                  <p className="mt-1 text-[11px] font-semibold text-rose-600">
+                    {articleFieldErrors.title}
+                  </p>
                 )}
               </div>
 
@@ -778,35 +1116,41 @@ export default function BlogPage() {
                     <label className="text-xs font-bold text-neutral-700">
                       URL Slug <span className="text-rose-600">*</span>
                     </label>
-                    <span className="text-[11px] font-mono text-neutral-400">
-                      {formData.slug.length}/100
+                    <span
+                      className={`text-[11px] font-mono ${
+                        articleFormData.slug.length > 100 ? "text-rose-600 font-bold" : "text-neutral-400"
+                      }`}
+                    >
+                      {articleFormData.slug.length}/100
                     </span>
                   </div>
                   <input
                     type="text"
                     maxLength={100}
-                    placeholder="e.g. complete-shravan-puja-rituals"
-                    value={formData.slug}
+                    placeholder="article-url-slug"
+                    value={articleFormData.slug}
                     onChange={(e) => {
-                      setAutoSlug(false);
-                      handleInputChange("slug", e.target.value.toLowerCase().replace(/\s+/g, "-"));
+                      setAutoArticleSlug(false);
+                      handleArticleInputChange("slug", e.target.value.toLowerCase().replace(/\s+/g, "-"));
                     }}
                     className={`w-full rounded-2xl border px-3.5 py-2.5 text-xs font-mono transition ${
-                      fieldErrors.slug
+                      articleFieldErrors.slug
                         ? "border-rose-500 bg-rose-50/30 text-rose-900"
                         : "border-neutral-200 bg-neutral-50/50 focus:border-[#5C0F17] focus:bg-white"
                     }`}
                   />
-                  {fieldErrors.slug ? (
-                    <p className="mt-1 text-[11px] font-semibold text-rose-600">{fieldErrors.slug}</p>
+                  {articleFieldErrors.slug ? (
+                    <p className="mt-1 text-[11px] font-semibold text-rose-600">
+                      {articleFieldErrors.slug}
+                    </p>
                   ) : (
                     <p className="mt-1 text-[10px] text-neutral-400 font-mono">
-                      Public URL: /blog/{formData.slug || "slug-preview"}
+                      Public URL: /blog/{articleFormData.slug || "slug-preview"}
                     </p>
                   )}
                 </div>
 
-                {/* Category */}
+                {/* Category (Dynamically Populated) */}
                 <div>
                   <div className="flex items-center justify-between mb-1">
                     <label className="text-xs font-bold text-neutral-700">
@@ -814,23 +1158,30 @@ export default function BlogPage() {
                     </label>
                   </div>
                   <select
-                    value={formData.category}
-                    onChange={(e) => handleInputChange("category", e.target.value)}
+                    value={articleFormData.category}
+                    onChange={(e) => {
+                      const selectedName = e.target.value;
+                      const matchedCat = categories.find((c) => c.name === selectedName);
+                      handleArticleInputChange("category", selectedName);
+                      handleArticleInputChange("categoryId", matchedCat ? matchedCat._id : null);
+                    }}
                     className={`w-full rounded-2xl border px-3.5 py-2.5 text-xs font-medium transition ${
-                      fieldErrors.category
+                      articleFieldErrors.category
                         ? "border-rose-500 bg-rose-50/30 text-rose-900"
                         : "border-neutral-200 bg-neutral-50/50 focus:border-[#5C0F17] focus:bg-white"
                     }`}
                   >
                     <option value="">Select Blog Category</option>
-                    {BLOG_CATEGORIES.map((cat) => (
-                      <option key={cat} value={cat}>
-                        {cat}
+                    {categories.map((cat) => (
+                      <option key={cat._id || cat.slug} value={cat.name}>
+                        {cat.name}
                       </option>
                     ))}
                   </select>
-                  {fieldErrors.category && (
-                    <p className="mt-1 text-[11px] font-semibold text-rose-600">{fieldErrors.category}</p>
+                  {articleFieldErrors.category && (
+                    <p className="mt-1 text-[11px] font-semibold text-rose-600">
+                      {articleFieldErrors.category}
+                    </p>
                   )}
                 </div>
               </div>
@@ -841,206 +1192,200 @@ export default function BlogPage() {
                   <label className="text-xs font-bold text-neutral-700">
                     Short Description <span className="text-rose-600">*</span>
                   </label>
-                  <span className={`text-[11px] font-mono ${formData.shortDescription.length > 180 ? "text-rose-600 font-bold" : "text-neutral-400"}`}>
-                    {formData.shortDescription.length}/180
+                  <span
+                    className={`text-[11px] font-mono ${
+                      articleFormData.shortDescription.length > 180
+                        ? "text-rose-600 font-bold"
+                        : "text-neutral-400"
+                    }`}
+                  >
+                    {articleFormData.shortDescription.length}/180
                   </span>
                 </div>
                 <textarea
                   rows={2}
                   maxLength={180}
-                  placeholder="Provide an editorial summary of the article (displayed on article cards & preview snippets)"
-                  value={formData.shortDescription}
-                  onChange={(e) => handleInputChange("shortDescription", e.target.value)}
-                  className={`w-full rounded-2xl border px-3.5 py-2 text-xs font-medium outline-none transition ${
-                    fieldErrors.shortDescription
+                  placeholder="Concise overview summarizing the article for catalog listings and cards..."
+                  value={articleFormData.shortDescription}
+                  onChange={(e) => handleArticleInputChange("shortDescription", e.target.value)}
+                  className={`w-full rounded-2xl border px-3.5 py-2 text-xs font-medium transition ${
+                    articleFieldErrors.shortDescription
                       ? "border-rose-500 bg-rose-50/30 text-rose-900"
                       : "border-neutral-200 bg-neutral-50/50 focus:border-[#5C0F17] focus:bg-white"
                   }`}
                 />
-                {fieldErrors.shortDescription && (
-                  <p className="mt-1 text-[11px] font-semibold text-rose-600">{fieldErrors.shortDescription}</p>
+                {articleFieldErrors.shortDescription && (
+                  <p className="mt-1 text-[11px] font-semibold text-rose-600">
+                    {articleFieldErrors.shortDescription}
+                  </p>
                 )}
               </div>
 
-              {/* Row 4: Cover Image Upload & Preview */}
+              {/* Row 4: Cover Image */}
               <div>
                 <label className="text-xs font-bold text-neutral-700 block mb-1">
                   Cover Image <span className="text-rose-600">*</span>
                 </label>
-                <div className="flex flex-col sm:flex-row items-center gap-4 rounded-2xl border border-neutral-200 p-4 bg-neutral-50/40">
-                  {formData.coverImage ? (
-                    <div className="relative group shrink-0">
-                      <img
-                        src={resolveImageUrl(formData.coverImage)}
-                        alt="Cover Preview"
-                        className="h-24 w-36 rounded-xl object-cover border border-neutral-200 shadow-xs"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => handleInputChange("coverImage", "")}
-                        className="absolute -top-2 -right-2 rounded-full bg-rose-600 p-1 text-white shadow-md hover:bg-rose-700 transition"
-                        title="Remove Image"
-                      >
-                        <X size={12} />
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="flex h-24 w-36 shrink-0 items-center justify-center rounded-xl border-2 border-dashed border-neutral-300 bg-white text-neutral-400">
-                      <ImageIcon size={28} />
-                    </div>
-                  )}
-
-                  <div className="flex-1 space-y-2">
-                    <div className="flex items-center gap-3">
-                      <label className="cursor-pointer inline-flex items-center gap-1.5 rounded-xl border border-[#DA9B26]/40 bg-[#FAF5ED] px-3.5 py-2 text-xs font-bold text-[#5C0F17] hover:bg-[#F3E9DA] transition shadow-xs">
-                        <UploadCloud size={14} className="text-[#DA9B26]" />
-                        {uploadingCover ? "Uploading..." : "Upload New Cover Image"}
-                        <input
-                          type="file"
-                          accept="image/jpeg,image/png,image/webp"
-                          className="hidden"
-                          onChange={handleCoverUpload}
-                          disabled={uploadingCover}
-                        />
-                      </label>
-                      <span className="text-[11px] text-neutral-400">or enter image path</span>
-                    </div>
-
+                <div className="flex flex-col sm:flex-row gap-4 items-start">
+                  <div className="flex-1 w-full space-y-2">
                     <input
                       type="text"
-                      placeholder="https://example.com/image.jpg or /uploads/blog/..."
-                      value={formData.coverImage}
-                      onChange={(e) => handleInputChange("coverImage", e.target.value)}
-                      className={`w-full rounded-xl border px-3 py-1.5 text-xs font-mono outline-none ${
-                        fieldErrors.coverImage
+                      placeholder="Enter direct image URL or upload below..."
+                      value={articleFormData.coverImage}
+                      onChange={(e) => handleArticleInputChange("coverImage", e.target.value)}
+                      className={`w-full rounded-2xl border px-3.5 py-2.5 text-xs font-mono transition ${
+                        articleFieldErrors.coverImage
                           ? "border-rose-500 bg-rose-50/30 text-rose-900"
-                          : "border-neutral-200 bg-white focus:border-[#5C0F17]"
+                          : "border-neutral-200 bg-neutral-50/50 focus:border-[#5C0F17] focus:bg-white"
                       }`}
                     />
+
+                    <div className="flex items-center gap-2">
+                      <label className="inline-flex items-center gap-1.5 rounded-xl border border-neutral-300 bg-white px-3 py-1.5 text-xs font-bold text-neutral-700 hover:bg-neutral-50 cursor-pointer shadow-xs transition">
+                        <UploadCloud size={14} className={uploadingCover ? "animate-bounce" : ""} />
+                        <span>{uploadingCover ? "Uploading..." : "Upload New File"}</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleCoverUpload}
+                          disabled={uploadingCover}
+                          className="hidden"
+                        />
+                      </label>
+                      <span className="text-[11px] text-neutral-400">
+                        Supports JPG, PNG, WebP up to 5MB
+                      </span>
+                    </div>
+
+                    {articleFieldErrors.coverImage && (
+                      <p className="text-[11px] font-semibold text-rose-600">
+                        {articleFieldErrors.coverImage}
+                      </p>
+                    )}
                   </div>
+
+                  {articleFormData.coverImage && (
+                    <div className="h-20 w-32 shrink-0 rounded-2xl overflow-hidden border border-neutral-200 bg-neutral-100 shadow-xs relative">
+                      <img
+                        src={resolveImageUrl(articleFormData.coverImage)}
+                        alt="Preview"
+                        className="h-full w-full object-cover"
+                        onError={(e) => {
+                          e.target.style.display = "none";
+                        }}
+                      />
+                    </div>
+                  )}
                 </div>
-                {fieldErrors.coverImage && (
-                  <p className="mt-1 text-[11px] font-semibold text-rose-600">{fieldErrors.coverImage}</p>
-                )}
               </div>
 
-              {/* Row 5: Article Content Editor with Toolbar & Live Preview */}
+              {/* Row 5: Rich Article Content */}
               <div>
                 <div className="flex items-center justify-between mb-1.5">
-                  <div className="flex items-center gap-3">
-                    <label className="text-xs font-bold text-neutral-700">
-                      Article Content <span className="text-rose-600">*</span>
-                    </label>
-                    <div className="flex rounded-lg border border-neutral-200 bg-neutral-100 p-0.5 text-xs font-bold">
-                      <button
-                        type="button"
-                        onClick={() => setContentTab("edit")}
-                        className={`rounded-md px-2.5 py-1 text-[11px] transition ${
-                          contentTab === "edit" ? "bg-white text-neutral-900 shadow-xs" : "text-neutral-500"
-                        }`}
-                      >
-                        Editor
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setContentTab("preview")}
-                        className={`rounded-md px-2.5 py-1 text-[11px] transition ${
-                          contentTab === "preview" ? "bg-white text-neutral-900 shadow-xs" : "text-neutral-500"
-                        }`}
-                      >
-                        Live Preview
-                      </button>
-                    </div>
+                  <label className="text-xs font-bold text-neutral-700">
+                    Article Content <span className="text-rose-600">*</span>
+                  </label>
+                  <div className="flex items-center gap-1 rounded-xl bg-neutral-100 p-0.5 text-xs font-bold">
+                    <button
+                      type="button"
+                      onClick={() => setContentTab("edit")}
+                      className={`px-3 py-1 rounded-lg transition ${
+                        contentTab === "edit"
+                          ? "bg-white text-neutral-900 shadow-xs"
+                          : "text-neutral-500 hover:text-neutral-800"
+                      }`}
+                    >
+                      Editor
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setContentTab("preview")}
+                      className={`px-3 py-1 rounded-lg transition ${
+                        contentTab === "preview"
+                          ? "bg-white text-neutral-900 shadow-xs"
+                          : "text-neutral-500 hover:text-neutral-800"
+                      }`}
+                    >
+                      Live Preview
+                    </button>
                   </div>
-                  <span className={`text-[11px] font-mono ${formData.content.length > 20000 ? "text-rose-600 font-bold" : "text-neutral-400"}`}>
-                    {formData.content.length}/20,000
-                  </span>
                 </div>
 
                 {contentTab === "edit" ? (
-                  <div className="rounded-2xl border border-neutral-200 bg-white overflow-hidden focus-within:border-[#5C0F17] transition shadow-xs">
-                    {/* Toolbar */}
-                    <div className="flex flex-wrap items-center gap-1 border-b border-neutral-200 bg-[#FAF6F0] p-1.5 text-neutral-700">
+                  <div className="rounded-2xl border border-neutral-200 overflow-hidden bg-neutral-50/30">
+                    {/* Content Snippet Toolbar */}
+                    <div className="flex flex-wrap items-center gap-1 border-b border-neutral-200 bg-neutral-100/70 p-1.5 text-neutral-600">
                       <button
                         type="button"
-                        onClick={() => insertContentSnippet("<h2>", "</h2>\n")}
-                        className="rounded-lg p-1.5 hover:bg-white text-xs font-bold text-neutral-700"
+                        onClick={() => insertContentSnippet("<h2>", "</h2>")}
                         title="Heading 2"
+                        className="flex h-7 w-7 items-center justify-center rounded-lg hover:bg-white hover:text-neutral-900 transition"
                       >
-                        H2
+                        <Heading size={14} />
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => insertContentSnippet("<h3>", "</h3>\n")}
-                        className="rounded-lg p-1.5 hover:bg-white text-xs font-bold text-neutral-700"
-                        title="Heading 3"
-                      >
-                        H3
-                      </button>
-                      <div className="h-4 w-px bg-neutral-300 mx-1" />
                       <button
                         type="button"
                         onClick={() => insertContentSnippet("<strong>", "</strong>")}
-                        className="rounded-lg p-1.5 hover:bg-white text-neutral-700"
-                        title="Bold"
+                        title="Bold Text"
+                        className="flex h-7 w-7 items-center justify-center rounded-lg hover:bg-white hover:text-neutral-900 transition font-bold"
                       >
                         <Bold size={14} />
                       </button>
                       <button
                         type="button"
                         onClick={() => insertContentSnippet("<em>", "</em>")}
-                        className="rounded-lg p-1.5 hover:bg-white text-neutral-700"
-                        title="Italic"
+                        title="Italic Text"
+                        className="flex h-7 w-7 items-center justify-center rounded-lg hover:bg-white hover:text-neutral-900 transition italic"
                       >
                         <Italic size={14} />
                       </button>
-                      <div className="h-4 w-px bg-neutral-300 mx-1" />
+                      <span className="h-4 w-px bg-neutral-300 mx-0.5" />
                       <button
                         type="button"
-                        onClick={() => insertContentSnippet("<ul>\n  <li>", "</li>\n</ul>\n")}
-                        className="rounded-lg p-1.5 hover:bg-white text-neutral-700"
+                        onClick={() => insertContentSnippet("<ul>\n  <li>", "</li>\n</ul>")}
                         title="Bullet List"
+                        className="flex h-7 w-7 items-center justify-center rounded-lg hover:bg-white hover:text-neutral-900 transition"
                       >
                         <List size={14} />
                       </button>
                       <button
                         type="button"
-                        onClick={() => insertContentSnippet("<ol>\n  <li>", "</li>\n</ol>\n")}
-                        className="rounded-lg p-1.5 hover:bg-white text-neutral-700"
+                        onClick={() => insertContentSnippet("<ol>\n  <li>", "</li>\n</ol>")}
                         title="Numbered List"
+                        className="flex h-7 w-7 items-center justify-center rounded-lg hover:bg-white hover:text-neutral-900 transition"
                       >
                         <ListOrdered size={14} />
                       </button>
                       <button
                         type="button"
-                        onClick={() => insertContentSnippet('<blockquote class="border-l-4 border-[#DA9B26] pl-4 italic my-4">\n', "\n</blockquote>\n")}
-                        className="rounded-lg p-1.5 hover:bg-white text-neutral-700"
+                        onClick={() => insertContentSnippet("<blockquote>\n  ", "\n</blockquote>")}
                         title="Blockquote"
+                        className="flex h-7 w-7 items-center justify-center rounded-lg hover:bg-white hover:text-neutral-900 transition"
                       >
                         <Quote size={14} />
                       </button>
-                      <div className="h-4 w-px bg-neutral-300 mx-1" />
+                      <span className="h-4 w-px bg-neutral-300 mx-0.5" />
                       <button
                         type="button"
-                        onClick={handleInsertLink}
-                        className="rounded-lg p-1.5 hover:bg-white text-neutral-700"
-                        title="Insert Link"
+                        onClick={() => insertContentSnippet('<a href="https://example.com" target="_blank" rel="noopener">', "</a>")}
+                        title="Link"
+                        className="flex h-7 w-7 items-center justify-center rounded-lg hover:bg-white hover:text-neutral-900 transition"
                       >
                         <Link2 size={14} />
                       </button>
                       <button
                         type="button"
-                        onClick={handleInsertImage}
-                        className="rounded-lg p-1.5 hover:bg-white text-neutral-700"
-                        title="Insert Image"
+                        onClick={() => insertContentSnippet('<img src="https://..." alt="', '" />')}
+                        title="Image Tag"
+                        className="flex h-7 w-7 items-center justify-center rounded-lg hover:bg-white hover:text-neutral-900 transition"
                       >
                         <ImageIcon size={14} />
                       </button>
                       <button
                         type="button"
-                        onClick={() => insertContentSnippet('<hr class="my-6 border-[#EEDBC5]" />\n')}
-                        className="rounded-lg p-1.5 hover:bg-white text-neutral-700"
-                        title="Horizontal Rule"
+                        onClick={() => insertContentSnippet("<hr />\n")}
+                        title="Divider Line"
+                        className="flex h-7 w-7 items-center justify-center rounded-lg hover:bg-white hover:text-neutral-900 transition"
                       >
                         <Minus size={14} />
                       </button>
@@ -1050,137 +1395,396 @@ export default function BlogPage() {
                       ref={contentTextareaRef}
                       rows={10}
                       maxLength={20000}
-                      placeholder="Write your article content using HTML formatting or rich text tags (paragraphs, headings, lists, links, images)..."
-                      value={formData.content}
-                      onChange={(e) => handleInputChange("content", e.target.value)}
-                      className="w-full p-4 text-xs font-mono outline-none bg-white leading-relaxed resize-y"
+                      placeholder="Write rich, informative article content using paragraphs (<p>), subheadings (<h2>), and lists (<ul>)..."
+                      value={articleFormData.content}
+                      onChange={(e) => handleArticleInputChange("content", e.target.value)}
+                      className={`w-full p-4 text-xs font-mono transition bg-transparent outline-none resize-y ${
+                        articleFieldErrors.content ? "text-rose-900" : "text-neutral-900"
+                      }`}
                     />
                   </div>
                 ) : (
-                  <div className="rounded-2xl border border-neutral-200 bg-white p-6 min-h-[250px] max-h-[400px] overflow-y-auto">
-                    {formData.content ? (
+                  <div className="rounded-2xl border border-neutral-200 p-5 bg-white min-h-[220px] max-h-[350px] overflow-y-auto prose prose-sm max-w-none">
+                    {articleFormData.content ? (
                       <div
-                        className="prose prose-sm max-w-none text-neutral-800 space-y-4"
-                        dangerouslySetInnerHTML={{ __html: formData.content }}
+                        dangerouslySetInnerHTML={{ __html: articleFormData.content }}
+                        className="text-xs text-neutral-800 space-y-3 leading-relaxed"
                       />
                     ) : (
-                      <p className="text-neutral-400 italic text-center py-12">
-                        No content written yet. Switch back to Editor mode to write your article.
-                      </p>
+                      <p className="text-xs italic text-neutral-400">No content entered yet to preview.</p>
                     )}
                   </div>
                 )}
 
-                {fieldErrors.content && (
-                  <p className="mt-1 text-[11px] font-semibold text-rose-600">{fieldErrors.content}</p>
+                {articleFieldErrors.content && (
+                  <p className="mt-1 text-[11px] font-semibold text-rose-600">
+                    {articleFieldErrors.content}
+                  </p>
                 )}
               </div>
 
-              {/* Row 6: SEO Accordion Section */}
-              <div className="rounded-2xl border border-neutral-200 bg-neutral-50/50 p-4 space-y-3">
-                <p className="text-xs font-bold text-neutral-800 uppercase tracking-wider flex items-center gap-1.5">
-                  <Sparkles size={14} className="text-[#DA9B26]" /> Search Engine Optimization (SEO)
+              {/* Row 6: SEO Metadata Accordion */}
+              <div className="rounded-2xl border border-neutral-200 bg-[#FAF6F0]/40 p-4 space-y-3">
+                <p className="text-xs font-bold text-neutral-800 flex items-center gap-1.5">
+                  <Sparkles size={14} className="text-[#DA9B26]" />
+                  <span>SEO Search Optimization (Optional)</span>
                 </p>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <label className="text-[11px] font-semibold text-neutral-600">SEO Meta Title</label>
-                      <span className="text-[10px] font-mono text-neutral-400">{formData.seoTitle.length}/70</span>
-                    </div>
+                    <label className="text-[11px] font-semibold text-neutral-600 block mb-1">
+                      SEO Title (Max 70 chars)
+                    </label>
                     <input
                       type="text"
                       maxLength={70}
-                      placeholder="Leave blank to use Article Title automatically"
-                      value={formData.seoTitle}
-                      onChange={(e) => handleInputChange("seoTitle", e.target.value)}
-                      className="w-full rounded-xl border border-neutral-200 bg-white px-3 py-2 text-xs outline-none focus:border-[#5C0F17]"
+                      placeholder="Defaults to article title if empty"
+                      value={articleFormData.seoTitle}
+                      onChange={(e) => handleArticleInputChange("seoTitle", e.target.value)}
+                      className="w-full rounded-xl border border-neutral-200 bg-white px-3 py-2 text-xs font-medium outline-none focus:border-[#5C0F17]"
                     />
                   </div>
 
                   <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <label className="text-[11px] font-semibold text-neutral-600">SEO Meta Description</label>
-                      <span className="text-[10px] font-mono text-neutral-400">{formData.seoDescription.length}/160</span>
-                    </div>
+                    <label className="text-[11px] font-semibold text-neutral-600 block mb-1">
+                      SEO Meta Description (Max 160 chars)
+                    </label>
                     <input
                       type="text"
                       maxLength={160}
-                      placeholder="Leave blank to use Short Description automatically"
-                      value={formData.seoDescription}
-                      onChange={(e) => handleInputChange("seoDescription", e.target.value)}
-                      className="w-full rounded-xl border border-neutral-200 bg-white px-3 py-2 text-xs outline-none focus:border-[#5C0F17]"
+                      placeholder="Defaults to short description if empty"
+                      value={articleFormData.seoDescription}
+                      onChange={(e) => handleArticleInputChange("seoDescription", e.target.value)}
+                      className="w-full rounded-xl border border-neutral-200 bg-white px-3 py-2 text-xs font-medium outline-none focus:border-[#5C0F17]"
                     />
                   </div>
                 </div>
               </div>
+
+              {/* Row 7: Publication Status */}
+              <div className="flex items-center gap-4 pt-1">
+                <span className="text-xs font-bold text-neutral-700">Publication Status:</span>
+                <label className="inline-flex items-center gap-2 cursor-pointer text-xs font-semibold text-neutral-700">
+                  <input
+                    type="radio"
+                    name="status"
+                    value="draft"
+                    checked={articleFormData.status === "draft"}
+                    onChange={() => handleArticleInputChange("status", "draft")}
+                    className="accent-[#5C0F17]"
+                  />
+                  <span>Save as Draft</span>
+                </label>
+                <label className="inline-flex items-center gap-2 cursor-pointer text-xs font-semibold text-emerald-800">
+                  <input
+                    type="radio"
+                    name="status"
+                    value="published"
+                    checked={articleFormData.status === "published"}
+                    onChange={() => handleArticleInputChange("status", "published")}
+                    className="accent-[#5C0F17]"
+                  />
+                  <span>Publish Immediately</span>
+                </label>
+              </div>
             </div>
 
-            {/* Modal Footer Actions */}
-            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-neutral-100 px-6 py-4 bg-[#FAF6F0]">
+            {/* Modal Footer */}
+            <div className="flex items-center justify-end gap-3 border-t border-neutral-100 bg-neutral-50 px-6 py-4">
               <button
                 type="button"
-                onClick={closeModal}
-                disabled={formSubmitting}
-                className="rounded-xl border border-neutral-200 bg-white px-4 py-2 text-xs font-bold text-neutral-700 hover:bg-neutral-50 transition"
+                onClick={closeArticleModal}
+                disabled={articleSubmitting}
+                className="rounded-xl border border-neutral-200 bg-white px-4 py-2 text-xs font-bold text-neutral-700 hover:bg-neutral-100 transition"
               >
                 Cancel
               </button>
-
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  disabled={formSubmitting}
-                  onClick={() => handleSubmit("draft")}
-                  className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-2 text-xs font-bold text-amber-900 hover:bg-amber-100 transition shadow-xs disabled:opacity-50"
-                >
-                  {formSubmitting ? "Saving..." : "Save as Draft"}
-                </button>
-
-                <button
-                  type="button"
-                  disabled={formSubmitting}
-                  onClick={() => handleSubmit("published")}
-                  className="rounded-xl bg-[#5C0F17] px-4 py-2 text-xs font-bold text-white hover:bg-[#4A0D15] transition shadow-xs disabled:opacity-50"
-                >
-                  {formSubmitting ? "Publishing..." : "Publish Article"}
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={handleArticleFormSubmit}
+                disabled={articleSubmitting}
+                className="inline-flex items-center gap-2 rounded-xl bg-[#5C0F17] px-5 py-2 text-xs font-bold text-white hover:bg-[#4A0D15] shadow-xs transition disabled:opacity-50"
+              >
+                {articleSubmitting && <RefreshCw size={13} className="animate-spin" />}
+                <span>{editingArticle ? "Save Changes" : "Create Article"}</span>
+              </button>
             </div>
           </div>
         </div>
       )}
 
       {/* ============================================================ */}
-      {/* 5. Soft Delete Confirmation Modal                            */}
+      {/* 4. Create / Edit Category Modal                              */}
+      {/* ============================================================ */}
+      {isCategoryModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 overflow-y-auto">
+          <div className="relative w-full max-w-lg rounded-3xl bg-white shadow-2xl border border-neutral-200 overflow-hidden my-8">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-neutral-100 px-6 py-4 bg-[#FAF6F0]">
+              <div className="flex items-center gap-2">
+                <Tags size={18} className="text-[#DA9B26]" />
+                <h2 className="text-base font-black text-neutral-900">
+                  {editingCategory ? "Edit Blog Category" : "Add New Blog Category"}
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={closeCategoryModal}
+                className="rounded-xl p-1.5 text-neutral-400 hover:bg-neutral-200 hover:text-neutral-700 transition"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <form onSubmit={handleCategoryFormSubmit} className="p-6 space-y-4">
+              {/* Category Name */}
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-xs font-bold text-neutral-700">
+                    Category Name <span className="text-rose-600">*</span>
+                  </label>
+                  <span
+                    className={`text-[11px] font-mono ${
+                      categoryFormData.name.length > 40 ? "text-rose-600 font-bold" : "text-neutral-400"
+                    }`}
+                  >
+                    {categoryFormData.name.length}/40
+                  </span>
+                </div>
+                <input
+                  type="text"
+                  maxLength={40}
+                  placeholder="e.g. Festival Guides"
+                  value={categoryFormData.name}
+                  onChange={(e) => handleCategoryInputChange("name", e.target.value)}
+                  className={`w-full rounded-2xl border px-3.5 py-2.5 text-xs font-medium transition ${
+                    categoryFieldErrors.name
+                      ? "border-rose-500 bg-rose-50/30 text-rose-900"
+                      : "border-neutral-200 bg-neutral-50/50 focus:border-[#5C0F17] focus:bg-white"
+                  }`}
+                />
+                {categoryFieldErrors.name && (
+                  <p className="mt-1 text-[11px] font-semibold text-rose-600">
+                    {categoryFieldErrors.name}
+                  </p>
+                )}
+              </div>
+
+              {/* Slug */}
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-xs font-bold text-neutral-700">
+                    Slug <span className="text-rose-600">*</span>
+                  </label>
+                  <span
+                    className={`text-[11px] font-mono ${
+                      categoryFormData.slug.length > 60 ? "text-rose-600 font-bold" : "text-neutral-400"
+                    }`}
+                  >
+                    {categoryFormData.slug.length}/60
+                  </span>
+                </div>
+                <input
+                  type="text"
+                  maxLength={60}
+                  placeholder="festival-guides"
+                  value={categoryFormData.slug}
+                  onChange={(e) => {
+                    setAutoCategorySlug(false);
+                    handleCategoryInputChange("slug", e.target.value.toLowerCase().replace(/\s+/g, "-"));
+                  }}
+                  className={`w-full rounded-2xl border px-3.5 py-2.5 text-xs font-mono transition ${
+                    categoryFieldErrors.slug
+                      ? "border-rose-500 bg-rose-50/30 text-rose-900"
+                      : "border-neutral-200 bg-neutral-50/50 focus:border-[#5C0F17] focus:bg-white"
+                  }`}
+                />
+                {categoryFieldErrors.slug && (
+                  <p className="mt-1 text-[11px] font-semibold text-rose-600">
+                    {categoryFieldErrors.slug}
+                  </p>
+                )}
+              </div>
+
+              {/* Description */}
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-xs font-bold text-neutral-700">
+                    Description <span className="text-neutral-400 font-normal">(Optional)</span>
+                  </label>
+                  <span
+                    className={`text-[11px] font-mono ${
+                      categoryFormData.description.length > 150
+                        ? "text-rose-600 font-bold"
+                        : "text-neutral-400"
+                    }`}
+                  >
+                    {categoryFormData.description.length}/150
+                  </span>
+                </div>
+                <textarea
+                  rows={3}
+                  maxLength={150}
+                  placeholder="Brief summary of articles grouped under this category..."
+                  value={categoryFormData.description}
+                  onChange={(e) => handleCategoryInputChange("description", e.target.value)}
+                  className={`w-full rounded-2xl border px-3.5 py-2 text-xs font-medium transition ${
+                    categoryFieldErrors.description
+                      ? "border-rose-500 bg-rose-50/30 text-rose-900"
+                      : "border-neutral-200 bg-neutral-50/50 focus:border-[#5C0F17] focus:bg-white"
+                  }`}
+                />
+                {categoryFieldErrors.description && (
+                  <p className="mt-1 text-[11px] font-semibold text-rose-600">
+                    {categoryFieldErrors.description}
+                  </p>
+                )}
+              </div>
+
+              {/* Modal Actions */}
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-neutral-100">
+                <button
+                  type="button"
+                  onClick={closeCategoryModal}
+                  disabled={categorySubmitting}
+                  className="rounded-xl border border-neutral-200 bg-white px-4 py-2 text-xs font-bold text-neutral-700 hover:bg-neutral-100 transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={categorySubmitting}
+                  className="inline-flex items-center gap-2 rounded-xl bg-[#5C0F17] px-5 py-2 text-xs font-bold text-white hover:bg-[#4A0D15] shadow-xs transition disabled:opacity-50"
+                >
+                  {categorySubmitting && <RefreshCw size={13} className="animate-spin" />}
+                  <span>{editingCategory ? "Save Category" : "Add Category"}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================ */}
+      {/* 5. Delete Article Confirmation Modal                         */}
       {/* ============================================================ */}
       {deletingArticle && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
-          <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl border border-neutral-200 text-center">
-            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-rose-100 text-rose-600 mb-4">
-              <Trash2 size={24} />
+          <div className="relative w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl border border-neutral-200 space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-rose-50 text-rose-600 border border-rose-100">
+                <Trash2 size={20} />
+              </div>
+              <div>
+                <h3 className="text-sm font-black text-neutral-900">Archive Article</h3>
+                <p className="text-xs text-neutral-500">Soft delete article from active listings</p>
+              </div>
             </div>
-            <h3 className="text-base font-black text-neutral-900">Archive Blog Article?</h3>
-            <p className="mt-2 text-xs text-neutral-500 leading-relaxed">
-              Are you sure you want to delete <b className="text-neutral-800">"{deletingArticle.title}"</b>? It will be safely archived and hidden from public visitors.
+
+            <p className="text-xs text-neutral-600 leading-relaxed">
+              Are you sure you want to remove &quot;
+              <span className="font-bold text-neutral-900">{deletingArticle.title}</span>&quot;? This
+              article will be archived and hidden from public readers.
             </p>
 
-            <div className="mt-6 flex items-center justify-center gap-3">
+            <div className="flex items-center justify-end gap-3 pt-2">
               <button
                 type="button"
-                disabled={isDeleting}
+                disabled={isDeletingArticle}
                 onClick={() => setDeletingArticle(null)}
-                className="rounded-xl border border-neutral-200 bg-white px-4 py-2 text-xs font-bold text-neutral-700 hover:bg-neutral-50"
+                className="rounded-xl border border-neutral-200 bg-white px-4 py-2 text-xs font-bold text-neutral-700 hover:bg-neutral-50 transition"
               >
                 Cancel
               </button>
               <button
                 type="button"
-                disabled={isDeleting}
-                onClick={handleConfirmDelete}
-                className="rounded-xl bg-rose-600 px-4 py-2 text-xs font-bold text-white hover:bg-rose-700 shadow-xs disabled:opacity-50"
+                disabled={isDeletingArticle}
+                onClick={handleConfirmDeleteArticle}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-rose-600 px-4 py-2 text-xs font-bold text-white hover:bg-rose-700 shadow-xs transition"
               >
-                {isDeleting ? "Archiving..." : "Yes, Archive Article"}
+                {isDeletingArticle && <RefreshCw size={13} className="animate-spin" />}
+                <span>Confirm Archive</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================ */}
+      {/* 6. Blocked Category Delete Modal (Safety Invariant)          */}
+      {/* ============================================================ */}
+      {blockedCategoryDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
+          <div className="relative w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl border border-amber-200 space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-amber-50 text-amber-700 border border-amber-200">
+                <ShieldAlert size={22} className="text-amber-600" />
+              </div>
+              <div>
+                <h3 className="text-sm font-black text-neutral-900">Cannot Delete Category</h3>
+                <p className="text-xs text-neutral-500">Active articles are associated</p>
+              </div>
+            </div>
+
+            <div className="rounded-2xl bg-amber-50/70 border border-amber-200 p-4 text-xs text-amber-900 leading-relaxed">
+              Cannot delete category &quot;<strong>{blockedCategoryDelete.name}</strong>&quot; because
+              it contains <strong>{blockedCategoryDelete.count} article(s)</strong>. Please reassign or
+              delete these articles before removing the category.
+            </div>
+
+            <div className="flex items-center justify-end pt-2">
+              <button
+                type="button"
+                onClick={() => setBlockedCategoryDelete(null)}
+                className="rounded-xl bg-[#5C0F17] px-5 py-2 text-xs font-bold text-white hover:bg-[#4A0D15] shadow-xs transition"
+              >
+                Understood
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================ */}
+      {/* 7. Confirm Category Delete Modal (0 Articles)                */}
+      {/* ============================================================ */}
+      {deletingCategory && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
+          <div className="relative w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl border border-neutral-200 space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-rose-50 text-rose-600 border border-rose-100">
+                <Trash2 size={20} />
+              </div>
+              <div>
+                <h3 className="text-sm font-black text-neutral-900">Delete Category</h3>
+                <p className="text-xs text-neutral-500">Soft delete category</p>
+              </div>
+            </div>
+
+            <p className="text-xs text-neutral-600 leading-relaxed">
+              Are you sure you want to delete category &quot;
+              <span className="font-bold text-neutral-900">{deletingCategory.name}</span>&quot;? Since it
+              has no articles attached, it will be safely archived.
+            </p>
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                type="button"
+                disabled={isDeletingCategory}
+                onClick={() => setDeletingCategory(null)}
+                className="rounded-xl border border-neutral-200 bg-white px-4 py-2 text-xs font-bold text-neutral-700 hover:bg-neutral-50 transition"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isDeletingCategory}
+                onClick={handleConfirmDeleteCategory}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-rose-600 px-4 py-2 text-xs font-bold text-white hover:bg-rose-700 shadow-xs transition"
+              >
+                {isDeletingCategory && <RefreshCw size={13} className="animate-spin" />}
+                <span>Confirm Delete</span>
               </button>
             </div>
           </div>
@@ -1189,4 +1793,3 @@ export default function BlogPage() {
     </div>
   );
 }
-

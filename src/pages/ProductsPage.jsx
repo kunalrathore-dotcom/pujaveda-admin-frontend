@@ -18,7 +18,6 @@ import {
 
 import { productService } from "../services/productService";
 import { categoryService } from "../services/categoryService";
-import { couponService } from "../services/couponService";
 import { uploadService } from "../services/uploadService";
 import { resolveImageUrl } from "../utils/imageHelper";
 
@@ -46,7 +45,6 @@ const emptyForm = {
   images: [],
   imageIds: [],
   primaryImage: "",
-  couponIds: [],
 };
 
 const getInputClass = (hasError) =>
@@ -74,22 +72,18 @@ export default function ProductsPage() {
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState("");
-  const [coupons, setCoupons] = useState([]);
-  const [couponSearch, setCouponSearch] = useState("");
   const fileInputRef = useRef(null);
 
   const loadData = async () => {
     try {
       setLoading(true);
-      const [fetchedProducts, fetchedCategories, couponRes] = await Promise.all([
+      const [fetchedProducts, fetchedCategories] = await Promise.all([
         productService.getAll({ isPublished: "all", isDeleted: "false" }),
         categoryService.getAll(),
-        couponService.getCoupons({ limit: 100, isActive: "all" }),
       ]);
 
       setProducts(fetchedProducts || []);
       setCategories(fetchedCategories || []);
-      setCoupons(couponRes?.data?.coupons || couponRes?.coupons || []);
     } catch (error) {
       console.error("Unable to load data:", error);
       setErrorMessage(error.message || "Unable to connect to product service.");
@@ -263,9 +257,7 @@ export default function ProductsPage() {
       images: product.images || [],
       imageIds: product.imageIds || [],
       primaryImage: product.primaryImage || product.images?.[0] || "",
-      couponIds: (product.assignedCoupons || []).map((c) => String(c._id || c)),
     });
-    setCouponSearch("");
     setErrors({});
     setModalOpen(true);
   };
@@ -371,7 +363,6 @@ export default function ProductsPage() {
         images: form.images,
         imageIds: form.imageIds,
         primaryImage: form.primaryImage || form.images[0] || "",
-        couponIds: form.couponIds,
       };
 
       if (editingId) {
@@ -1100,62 +1091,6 @@ export default function ProductsPage() {
                   />
                   <span>Featured Collection Item</span>
                 </label>
-              </div>
-
-              {/* Assigned Coupons */}
-              <div>
-                <label className="text-xs font-bold uppercase tracking-wider text-[#5C0F17]">
-                  Assigned Coupons
-                </label>
-                <input
-                  type="text"
-                  value={couponSearch}
-                  maxLength={30}
-                  onChange={(e) => setCouponSearch(e.target.value)}
-                  className={inputClass}
-                  placeholder="Search coupons to attach..."
-                />
-                <div className="mt-2 max-h-36 space-y-1.5 overflow-y-auto rounded-xl border border-[#EEDBC5] p-2 bg-white">
-                  {coupons
-                    .filter((coupon) => {
-                      const q = couponSearch.trim().toLowerCase();
-                      if (!q) return true;
-                      return (
-                        coupon.code.toLowerCase().includes(q) ||
-                        (coupon.description || "").toLowerCase().includes(q)
-                      );
-                    })
-                    .map((coupon) => {
-                      const id = String(coupon._id);
-                      const selected = form.couponIds.includes(id);
-                      return (
-                        <label
-                          key={id}
-                          className={`flex cursor-pointer items-start gap-2 rounded-lg px-2 py-1 text-xs ${
-                            selected ? "bg-[#FAF5ED] text-[#5C0F17] font-bold" : "hover:bg-neutral-50"
-                          }`}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={selected}
-                            onChange={() => {
-                              const next = selected
-                                ? form.couponIds.filter((v) => v !== id)
-                                : [...form.couponIds, id];
-                              updateField("couponIds", next);
-                            }}
-                            className="mt-0.5 accent-[#5C0F17]"
-                          />
-                          <span>
-                            <span>{coupon.code}</span>
-                            <span className="ml-1 text-[#2D1C13]/60 font-normal">
-                              ({coupon.discountType === "percentage" ? `${coupon.discountValue}%` : `₹${coupon.discountValue}`} off)
-                            </span>
-                          </span>
-                        </label>
-                      );
-                    })}
-                </div>
               </div>
 
               {/* Form Buttons */}

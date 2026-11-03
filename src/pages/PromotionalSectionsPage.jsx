@@ -12,6 +12,8 @@ import {
   Eye,
   ArrowRight,
   ExternalLink,
+  CheckCircle2,
+  AlertCircle,
 } from "lucide-react";
 import { promotionalSectionService } from "../services/promotionalSectionService";
 import { uploadService } from "../services/uploadService";
@@ -40,6 +42,7 @@ const getFieldClass = (hasError) =>
 const fieldClass = getFieldClass(false);
 
 export default function PromotionalSectionsPage() {
+  const [loading, setLoading] = useState(true);
   const [cards, setCards] = useState([]);
   const [formOpen, setFormOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -48,16 +51,23 @@ export default function PromotionalSectionsPage() {
   const [notice, setNotice] = useState("");
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [deletingId, setDeletingId] = useState(null);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [togglingId, setTogglingId] = useState(null);
   const [selectedIds, setSelectedIds] = useState([]);
   const [fieldErrors, setFieldErrors] = useState({});
   const fileInputRef = useRef(null);
 
   const load = async () => {
     try {
+      setLoading(true);
+      setError("");
       const data = await promotionalSectionService.getAll({ isDeleted: "false" });
-      setCards(data);
+      setCards(Array.isArray(data) ? data : []);
     } catch (err) {
       setError(err.message || "Failed to load promotional sections.");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -160,6 +170,7 @@ export default function PromotionalSectionsPage() {
     }
     setFieldErrors({});
 
+    if (saving || uploading) return;
     setSaving(true);
     setError("");
     try {
@@ -170,6 +181,7 @@ export default function PromotionalSectionsPage() {
         await promotionalSectionService.create(form);
         setNotice("New promotional section created successfully.");
       }
+      setTimeout(() => setNotice(""), 4000);
       setFormOpen(false);
       await load();
     } catch (err) {
@@ -181,42 +193,52 @@ export default function PromotionalSectionsPage() {
 
   const handleToggle = async (card) => {
     const id = card._id || card.id;
+    if (togglingId) return;
     try {
+      setTogglingId(id);
       await promotionalSectionService.update(id, { isActive: !card.isActive });
       await load();
     } catch (err) {
       setError(err.message || "Failed to update status.");
+    } finally {
+      setTogglingId(null);
     }
   };
 
   const handleDelete = async (card) => {
     const id = card._id || card.id;
+    if (deletingId || saving) return;
     if (!window.confirm(`Are you sure you want to delete promotional section "${card.title}"?`)) return;
     try {
+      setDeletingId(id);
       await promotionalSectionService.delete(id);
-      await load();
       setNotice("Promotional card deleted successfully.");
+      setTimeout(() => setNotice(""), 4000);
+      await load();
     } catch (err) {
       setError(err.message || "Failed to delete card.");
+    } finally {
+      setDeletingId(null);
     }
   };
 
   const handleBulkDelete = async (idsToDelete) => {
-    if (!idsToDelete || idsToDelete.length === 0) return;
+    if (!idsToDelete || idsToDelete.length === 0 || bulkDeleting || saving) return;
     if (!window.confirm(`Are you sure you want to delete ${idsToDelete.length} promotional card(s)?`)) return;
 
     try {
-      setSaving(true);
+      setBulkDeleting(true);
+      setError("");
       await promotionalSectionService.bulkTrash(idsToDelete);
       setNotice(`${idsToDelete.length} card(s) deleted successfully.`);
       setSelectedIds([]);
-      setTimeout(() => setNotice(""), 3500);
+      setTimeout(() => setNotice(""), 4000);
       await load();
     } catch (err) {
       console.error("Bulk delete error:", err);
       setError(err.message || "Failed to delete selected cards.");
     } finally {
-      setSaving(false);
+      setBulkDeleting(false);
     }
   };
 
@@ -233,177 +255,238 @@ export default function PromotionalSectionsPage() {
           </p>
         </div>
 
-        <button
-          type="button"
-          onClick={() => openForm()}
-          className="inline-flex items-center gap-2 rounded-xl bg-[#5C0F17] hover:bg-[#4A0D15] px-4 py-2.5 text-xs sm:text-sm font-bold text-white shadow-md shadow-[#5C0F17]/20 transition"
-        >
-          <Plus size={16} className="text-white" />
-          <span className="text-white">Add Promotional Card</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={load}
+            disabled={loading}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-neutral-200 bg-white px-3 py-2 text-xs font-semibold text-neutral-700 hover:bg-neutral-50 shadow-xs transition disabled:opacity-50"
+          >
+            <RefreshCw size={13} className={loading ? "animate-spin" : ""} />
+            <span>Refresh</span>
+          </button>
+
+          <button
+            type="button"
+            disabled={loading}
+            onClick={() => openForm()}
+            className="inline-flex items-center gap-2 rounded-xl bg-[#5C0F17] hover:bg-[#4A0D15] px-4 py-2.5 text-xs sm:text-sm font-bold text-white shadow-md shadow-[#5C0F17]/20 transition disabled:opacity-50"
+          >
+            <Plus size={16} className="text-white" />
+            <span className="text-white">Add Promotional Card</span>
+          </button>
+        </div>
       </div>
 
       {notice && (
-        <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3.5 text-xs font-semibold text-emerald-800">
-          {notice}
-        </div>
-      )}
-      {error && (
-        <div className="rounded-xl border border-red-200 bg-red-50 p-3.5 text-xs font-semibold text-red-700">
-          {error}
-        </div>
-      )}
-
-      {/* Bulk Action Controls */}
-      {cards.length > 0 && (
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#EEDBC5] bg-[#FAF5ED] px-4 py-3">
-          <div className="flex items-center gap-3">
-            <label className="flex items-center gap-2 text-xs font-bold text-[#2D1C13] cursor-pointer">
-              <input
-                type="checkbox"
-                checked={cards.length > 0 && selectedIds.length === cards.length}
-                onChange={(e) => {
-                  if (e.target.checked) {
-                    setSelectedIds(cards.map((c) => c._id || c.id));
-                  } else {
-                    setSelectedIds([]);
-                  }
-                }}
-                className="h-4 w-4 rounded accent-[#5C0F17]"
-              />
-              <span>Select All</span>
-            </label>
-            <span className="text-xs font-semibold text-[#5C0F17]">
-              {selectedIds.length > 0 ? `(${selectedIds.length} of ${cards.length} selected)` : ''}
-            </span>
-          </div>
-
+        <div className="flex items-center justify-between gap-2 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs font-semibold text-emerald-800">
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              disabled={selectedIds.length === 0}
-              onClick={() => handleBulkDelete(selectedIds)}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-red-600 px-3 py-1.5 text-xs font-bold text-white shadow-xs transition hover:bg-red-700 disabled:cursor-not-allowed disabled:bg-neutral-300"
-            >
-              <Trash2 size={13} />
-              Delete Selected
-            </button>
+            <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
+            <span>{notice}</span>
           </div>
-        </div>
-      )}
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {cards.map((card) => {
-          const id = card._id || card.id;
-          return (
-            <div
-              key={id}
-              className="relative overflow-hidden rounded-2xl border border-[#EEDBC5] bg-white shadow-sm flex flex-col justify-between transition hover:border-[#DA9B26] hover:shadow-md"
-            >
-              <div className="relative aspect-[16/9] w-full overflow-hidden bg-neutral-100">
-                <img
-                  src={resolveImageUrl(card.imageUrl)}
-                  alt={card.title}
-                  className="h-full w-full object-cover"
-                />
-                <div className="absolute top-3 left-3 flex gap-2">
-                  <span
-                    className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
-                      card.isActive
-                        ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
-                        : "bg-neutral-200 text-neutral-600 border border-neutral-300"
-                    }`}
-                  >
-                    {card.isActive ? "Active" : "Inactive"}
-                  </span>
-                  <span className="inline-flex items-center rounded-full bg-white/90 px-2.5 py-0.5 text-[10px] font-bold text-[#5C0F17] border border-[#EEDBC5]">
-                    Order: {card.order || 0}
-                  </span>
-                  <span className="inline-flex items-center rounded-full bg-[#DA9B26]/20 px-2.5 py-0.5 text-[10px] font-bold text-[#5C0F17] border border-[#DA9B26]/40">
-                    {card.placement === "all"
-                      ? "All Pages"
-                      : card.placement === "homepage"
-                      ? "Homepage Only"
-                      : "Category Pages"}
-                  </span>
-                </div>
-              </div>
-
-              <div className="p-5 flex-1 flex flex-col justify-between">
-                <div>
-                  {card.pretitle && (
-                    <p className="text-[11px] font-bold uppercase tracking-widest text-[#DA9B26]">
-                      {card.pretitle}
-                    </p>
-                  )}
-                  <h3 className="mt-1 font-serif text-lg font-bold text-[#5C0F17]">
-                    {card.title}
-                  </h3>
-                  <p className="mt-2 text-xs text-[#2D1C13]/70 line-clamp-2">
-                    {card.description}
-                  </p>
-                </div>
-
-                <div className="mt-4 pt-4 border-t border-[#EEDBC5] flex items-center justify-between text-xs">
-                  <span className="font-semibold text-[#5C0F17] truncate max-w-[200px]">
-                    CTA: {card.ctaText} → {card.link}
-                  </span>
-
-                  <div className="flex items-center gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() => handleToggle(card)}
-                      title={card.isActive ? "Deactivate" : "Activate"}
-                      className="p-1.5 rounded-lg text-neutral-600 hover:bg-[#FAF5ED] transition"
-                    >
-                      {card.isActive ? (
-                        <ToggleRight size={20} className="text-emerald-600" />
-                      ) : (
-                        <ToggleLeft size={20} className="text-neutral-400" />
-                      )}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => openForm(card)}
-                      title="Edit"
-                      className="p-1.5 rounded-lg text-neutral-600 hover:bg-[#FAF5ED] hover:text-[#5C0F17] transition"
-                    >
-                      <Pencil size={16} />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleDelete(card)}
-                      title="Delete section"
-                      className="p-1.5 rounded-lg text-red-600 hover:bg-red-50 transition"
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      {cards.length === 0 && (
-        <div className="rounded-2xl border border-dashed border-[#EEDBC5] bg-white p-12 text-center">
-          <Sparkles className="mx-auto text-[#DA9B26]" size={36} />
-          <h3 className="mt-3 font-serif text-lg font-bold text-[#5C0F17]">
-            No Promotional Cards Configured
-          </h3>
-          <p className="mt-1 text-xs text-[#2D1C13]/70">
-            Create pre-footer cards like "Mandir & Brass Utensils" or "Havan Essentials".
-          </p>
-          <button
-            type="button"
-            onClick={() => openForm()}
-            className="mt-4 inline-flex items-center gap-2 rounded-xl bg-[#5C0F17] px-4 py-2 text-xs font-bold text-white shadow-sm"
-          >
-            <Plus size={14} className="text-white" />
-            <span className="text-white">Create First Card</span>
+          <button type="button" onClick={() => setNotice("")} className="text-emerald-600 hover:text-emerald-900">
+            <X size={14} />
           </button>
         </div>
+      )}
+
+      {error && (
+        <div className="flex items-center justify-between gap-2 rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs font-semibold text-rose-700">
+          <div className="flex items-center gap-2">
+            <AlertCircle size={16} className="text-rose-600 shrink-0" />
+            <span>{error}</span>
+          </div>
+          <button type="button" onClick={() => setError("")} className="text-rose-600 hover:text-rose-900">
+            <X size={14} />
+          </button>
+        </div>
+      )}
+
+      {/* Loading state indicator */}
+      {loading ? (
+        <div className="flex flex-col items-center justify-center rounded-2xl border border-[#EEDBC5] bg-white p-16 text-center shadow-sm">
+          <RefreshCw size={36} className="animate-spin text-[#DA9B26]" />
+          <p className="mt-4 font-serif text-base font-bold text-[#5C0F17]">
+            Loading promotional sections...
+          </p>
+          <p className="mt-1 text-xs text-[#2D1C13]/60">
+            Fetching active promotional cards from database
+          </p>
+        </div>
+      ) : (
+        <>
+          {/* Bulk Action Controls */}
+          {cards.length > 0 && (
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#EEDBC5] bg-[#FAF5ED] px-4 py-3">
+              <div className="flex items-center gap-3">
+                <label className="flex items-center gap-2 text-xs font-bold text-[#2D1C13] cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={cards.length > 0 && selectedIds.length === cards.length}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setSelectedIds(cards.map((c) => c._id || c.id));
+                      } else {
+                        setSelectedIds([]);
+                      }
+                    }}
+                    className="h-4 w-4 rounded accent-[#5C0F17]"
+                  />
+                  <span>Select All</span>
+                </label>
+                <span className="text-xs font-semibold text-[#5C0F17]">
+                  {selectedIds.length > 0 ? `(${selectedIds.length} of ${cards.length} selected)` : ""}
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  disabled={selectedIds.length === 0 || bulkDeleting}
+                  onClick={() => handleBulkDelete(selectedIds)}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-red-600 px-3 py-1.5 text-xs font-bold text-white shadow-xs transition hover:bg-red-700 disabled:cursor-not-allowed disabled:bg-neutral-300"
+                >
+                  {bulkDeleting ? (
+                    <>
+                      <RefreshCw size={13} className="animate-spin text-white" />
+                      <span>Deleting...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 size={13} />
+                      <span>Delete Selected</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {cards.map((card) => {
+              const id = card._id || card.id;
+              const isDeletingThis = deletingId === id;
+              const isTogglingThis = togglingId === id;
+              return (
+                <div
+                  key={id}
+                  className="relative overflow-hidden rounded-2xl border border-[#EEDBC5] bg-white shadow-sm flex flex-col justify-between transition hover:border-[#DA9B26] hover:shadow-md"
+                >
+                  <div className="relative aspect-[16/9] w-full overflow-hidden bg-neutral-100">
+                    <img
+                      src={resolveImageUrl(card.imageUrl)}
+                      alt={card.title}
+                      className="h-full w-full object-cover"
+                    />
+                    <div className="absolute top-3 left-3 flex gap-2">
+                      <span
+                        className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
+                          card.isActive
+                            ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
+                            : "bg-neutral-200 text-neutral-600 border border-neutral-300"
+                        }`}
+                      >
+                        {card.isActive ? "Active" : "Inactive"}
+                      </span>
+                      <span className="inline-flex items-center rounded-full bg-white/90 px-2.5 py-0.5 text-[10px] font-bold text-[#5C0F17] border border-[#EEDBC5]">
+                        Order: {card.order || 0}
+                      </span>
+                      <span className="inline-flex items-center rounded-full bg-[#DA9B26]/20 px-2.5 py-0.5 text-[10px] font-bold text-[#5C0F17] border border-[#DA9B26]/40">
+                        {card.placement === "all"
+                          ? "All Pages"
+                          : card.placement === "homepage"
+                          ? "Homepage Only"
+                          : "Category Pages"}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="p-5 flex-1 flex flex-col justify-between">
+                    <div>
+                      {card.pretitle && (
+                        <p className="text-[11px] font-bold uppercase tracking-widest text-[#DA9B26]">
+                          {card.pretitle}
+                        </p>
+                      )}
+                      <h3 className="mt-1 font-serif text-lg font-bold text-[#5C0F17]">
+                        {card.title}
+                      </h3>
+                      <p className="mt-2 text-xs text-[#2D1C13]/70 line-clamp-2">
+                        {card.description}
+                      </p>
+                    </div>
+
+                    <div className="mt-4 pt-4 border-t border-[#EEDBC5] flex items-center justify-between text-xs">
+                      <span className="font-semibold text-[#5C0F17] truncate max-w-[200px]">
+                        CTA: {card.ctaText} → {card.link}
+                      </span>
+
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          disabled={isTogglingThis || isDeletingThis}
+                          onClick={() => handleToggle(card)}
+                          title={card.isActive ? "Deactivate" : "Activate"}
+                          className="p-1.5 rounded-lg text-neutral-600 hover:bg-[#FAF5ED] transition disabled:opacity-50"
+                        >
+                          {isTogglingThis ? (
+                            <RefreshCw size={18} className="animate-spin text-[#DA9B26]" />
+                          ) : card.isActive ? (
+                            <ToggleRight size={20} className="text-emerald-600" />
+                          ) : (
+                            <ToggleLeft size={20} className="text-neutral-400" />
+                          )}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={isDeletingThis || isTogglingThis}
+                          onClick={() => openForm(card)}
+                          title="Edit"
+                          className="p-1.5 rounded-lg text-neutral-600 hover:bg-[#FAF5ED] hover:text-[#5C0F17] transition disabled:opacity-50"
+                        >
+                          <Pencil size={16} />
+                        </button>
+                        <button
+                          type="button"
+                          disabled={isDeletingThis || isTogglingThis}
+                          onClick={() => handleDelete(card)}
+                          title="Delete section"
+                          className="p-1.5 rounded-lg text-red-600 hover:bg-red-50 transition disabled:opacity-50"
+                        >
+                          {isDeletingThis ? (
+                            <RefreshCw size={16} className="animate-spin text-red-600" />
+                          ) : (
+                            <Trash2 size={16} />
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {cards.length === 0 && (
+            <div className="rounded-2xl border border-dashed border-[#EEDBC5] bg-white p-12 text-center">
+              <Sparkles className="mx-auto text-[#DA9B26]" size={36} />
+              <h3 className="mt-3 font-serif text-lg font-bold text-[#5C0F17]">
+                No Promotional Cards Configured
+              </h3>
+              <p className="mt-1 text-xs text-[#2D1C13]/70">
+                Create pre-footer cards like "Mandir & Brass Utensils" or "Havan Essentials".
+              </p>
+              <button
+                type="button"
+                onClick={() => openForm()}
+                className="mt-4 inline-flex items-center gap-2 rounded-xl bg-[#5C0F17] px-4 py-2 text-xs font-bold text-white shadow-sm"
+              >
+                <Plus size={14} className="text-white" />
+                <span className="text-white">Create First Card</span>
+              </button>
+            </div>
+          )}
+        </>
       )}
 
       {/* Add / Edit Form Modal */}

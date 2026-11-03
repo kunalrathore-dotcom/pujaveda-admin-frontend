@@ -9,6 +9,8 @@ import {
   ToggleRight,
   RefreshCw,
   Sparkles,
+  AlertCircle,
+  CheckCircle2,
 } from "lucide-react";
 import { bannerService, MAX_BANNERS } from "../services/bannerService";
 import { uploadService } from "../services/uploadService";
@@ -35,6 +37,7 @@ const fieldClass = getFieldClass(false);
 
 export default function BannersPage() {
   const [banners, setBanners] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [formOpen, setFormOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState(blank);
@@ -42,16 +45,23 @@ export default function BannersPage() {
   const [notice, setNotice] = useState("");
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [deletingId, setDeletingId] = useState(null);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [togglingId, setTogglingId] = useState(null);
   const [selectedIds, setSelectedIds] = useState([]);
   const [fieldErrors, setFieldErrors] = useState({});
   const fileInputRef = useRef(null);
 
   const load = async () => {
     try {
+      setLoading(true);
+      setError("");
       const data = await bannerService.getAll({ isDeleted: "false" });
-      setBanners(data);
+      setBanners(Array.isArray(data) ? data : []);
     } catch (err) {
-      setError(err.message || "Failed to load banners.");
+      setError(err.message || "Failed to load banners from server.");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -88,13 +98,13 @@ export default function BannersPage() {
     setError("");
 
     if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
-      setError("Choose a JPG, PNG, or WEBP image.");
+      setError("Please select a JPG, PNG, or WEBP image.");
       event.target.value = "";
       return;
     }
 
     if (file.size > 5 * 1024 * 1024) {
-      setError("Image must be 5MB or smaller.");
+      setError("Banner image must be 5MB or smaller.");
       event.target.value = "";
       return;
     }
@@ -108,7 +118,7 @@ export default function BannersPage() {
         imageId: res.publicId,
       }));
     } catch (err) {
-      setError(err.message || "Failed to upload image.");
+      setError(err.message || "Failed to upload image. Please try again.");
     } finally {
       setUploading(false);
     }
@@ -116,6 +126,8 @@ export default function BannersPage() {
 
   const save = async (event) => {
     event.preventDefault();
+    if (saving || uploading) return; // Prevent duplicate submissions
+
     setError("");
     setNotice("");
 
@@ -173,6 +185,7 @@ export default function BannersPage() {
       }
 
       setFormOpen(false);
+      setTimeout(() => setNotice(""), 4000);
       await load();
     } catch (err) {
       setError(err.message || "Unable to save banner.");
@@ -182,52 +195,65 @@ export default function BannersPage() {
   };
 
   const removeBanner = async (id) => {
+    if (deletingId || saving) return; // Prevent concurrent delete
     if (!window.confirm("Are you sure you want to delete this banner?")) return;
+
     setError("");
     setNotice("");
+    setDeletingId(id);
 
     try {
       await bannerService.remove(id);
       setNotice("Banner deleted successfully.");
+      setTimeout(() => setNotice(""), 4000);
       await load();
     } catch (err) {
       setError(err.message || "Unable to delete banner.");
+    } finally {
+      setDeletingId(null);
     }
   };
 
   const handleBulkDelete = async (idsToDelete) => {
-    if (!idsToDelete || idsToDelete.length === 0) return;
+    if (!idsToDelete || idsToDelete.length === 0 || bulkDeleting || saving) return;
     if (!window.confirm(`Are you sure you want to delete ${idsToDelete.length} banner(s)?`)) return;
 
     try {
-      setSaving(true);
+      setBulkDeleting(true);
+      setError("");
       await bannerService.bulkTrash(idsToDelete);
       setNotice(`${idsToDelete.length} banner(s) deleted successfully.`);
       setSelectedIds([]);
-      setTimeout(() => setNotice(""), 3500);
+      setTimeout(() => setNotice(""), 4000);
       await load();
     } catch (err) {
       console.error("Bulk delete error:", err);
       setError(err.message || "Failed to delete selected banners.");
     } finally {
-      setSaving(false);
+      setBulkDeleting(false);
     }
   };
 
   const toggleActive = async (banner) => {
     const bannerId = banner._id || banner.id;
+    if (togglingId) return;
+
     try {
+      setTogglingId(bannerId);
       await bannerService.update(bannerId, {
         active: !banner.active,
       });
       await load();
     } catch (err) {
       setError(err.message || "Unable to toggle banner status.");
+    } finally {
+      setTogglingId(null);
     }
   };
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen space-y-5">
+      {/* Top Header */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="font-serif text-2xl font-bold text-[#5C0F17] sm:text-3xl">
@@ -238,31 +264,55 @@ export default function BannersPage() {
           </p>
         </div>
 
-        <button
-          type="button"
-          disabled={banners.length >= MAX_BANNERS}
-          onClick={() => openForm()}
-          className="flex items-center gap-2 rounded-xl bg-[#5C0F17] px-4 py-2.5 text-sm font-bold text-white shadow-md shadow-[#5C0F17]/20 transition hover:bg-[#4A0D15] disabled:opacity-50"
-        >
-          <Plus size={18} /> Add Banner Slide
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={load}
+            disabled={loading}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-neutral-200 bg-white px-3 py-2 text-xs font-semibold text-neutral-700 hover:bg-neutral-50 shadow-xs transition disabled:opacity-50"
+          >
+            <RefreshCw size={13} className={loading ? "animate-spin" : ""} />
+            <span>Refresh</span>
+          </button>
+
+          <button
+            type="button"
+            disabled={banners.length >= MAX_BANNERS || loading}
+            onClick={() => openForm()}
+            className="flex items-center gap-2 rounded-xl bg-[#5C0F17] px-4 py-2.5 text-sm font-bold text-white shadow-md shadow-[#5C0F17]/20 transition hover:bg-[#4A0D15] disabled:opacity-50"
+          >
+            <Plus size={18} /> Add Banner Slide
+          </button>
+        </div>
       </div>
 
       {notice && (
-        <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs font-semibold text-emerald-800">
-          {notice}
+        <div className="flex items-center justify-between gap-2 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs font-semibold text-emerald-800">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
+            <span>{notice}</span>
+          </div>
+          <button type="button" onClick={() => setNotice("")} className="text-emerald-600 hover:text-emerald-900">
+            <X size={14} />
+          </button>
         </div>
       )}
 
       {error && (
-        <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-3 text-xs font-semibold text-red-600">
-          {error}
+        <div className="flex items-center justify-between gap-2 rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs font-semibold text-rose-700">
+          <div className="flex items-center gap-2">
+            <AlertCircle size={16} className="text-rose-600 shrink-0" />
+            <span>{error}</span>
+          </div>
+          <button type="button" onClick={() => setError("")} className="text-rose-600 hover:text-rose-900">
+            <X size={14} />
+          </button>
         </div>
       )}
 
       {/* Bulk Action Controls */}
-      {banners.length > 0 && (
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#EEDBC5] bg-[#FAF5ED] px-4 py-3">
+      {banners.length > 0 && !loading && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#EEDBC5] bg-[#FAF5ED] px-4 py-3">
           <div className="flex items-center gap-3">
             <label className="flex items-center gap-2 text-xs font-bold text-[#2D1C13] cursor-pointer">
               <input
@@ -280,130 +330,170 @@ export default function BannersPage() {
               <span>Select All</span>
             </label>
             <span className="text-xs font-semibold text-[#5C0F17]">
-              {selectedIds.length > 0 ? `(${selectedIds.length} of ${banners.length} selected)` : ''}
+              {selectedIds.length > 0 ? `(${selectedIds.length} of ${banners.length} selected)` : ""}
             </span>
           </div>
 
           <div className="flex items-center gap-2">
             <button
               type="button"
-              disabled={selectedIds.length === 0}
+              disabled={selectedIds.length === 0 || bulkDeleting}
               onClick={() => handleBulkDelete(selectedIds)}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-red-600 px-3 py-1.5 text-xs font-bold text-white shadow-xs transition hover:bg-red-700 disabled:cursor-not-allowed disabled:bg-neutral-300"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-rose-600 px-3.5 py-1.5 text-xs font-bold text-white shadow-xs transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:bg-neutral-300"
             >
-              <Trash2 size={13} />
-              Delete Selected
+              {bulkDeleting ? (
+                <>
+                  <RefreshCw size={13} className="animate-spin" />
+                  <span>Deleting...</span>
+                </>
+              ) : (
+                <>
+                  <Trash2 size={13} />
+                  <span>Delete Selected</span>
+                </>
+              )}
             </button>
           </div>
         </div>
       )}
 
-      <div className="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-        {banners.map((banner) => {
-          const bId = banner._id || banner.id;
-          return (
-          <article
-            key={bId}
-            className="group relative overflow-hidden rounded-2xl border border-[#EEDBC5] bg-[#FFFDF9] shadow-xs flex flex-col justify-between"
-          >
-            <input
-              type="checkbox"
-              checked={selectedIds.includes(bId)}
-              onChange={() => {
-                setSelectedIds((prev) =>
-                  prev.includes(bId) ? prev.filter((id) => id !== bId) : [...prev, bId]
-                );
-              }}
-              className="absolute right-3 top-3 z-20 h-5 w-5 rounded accent-[#5C0F17] shadow-sm cursor-pointer"
-            />
-            <div className="relative aspect-[16/9] w-full overflow-hidden bg-[#FAF5ED]">
-              <img
-                src={resolveImageUrl(banner.imageUrl)}
-                alt={banner.title}
-                className="h-full w-full object-cover"
-              />
-              <span
-                className={`absolute left-3 top-3 rounded-md px-2 py-0.5 text-[10px] font-extrabold tracking-wider ${
-                  banner.active ? "bg-emerald-700 text-white" : "bg-neutral-800 text-white"
-                }`}
-              >
-                {banner.active ? "ACTIVE" : "INACTIVE"}
-              </span>
+      {/* Main Grid View / Loading / Empty States */}
+      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        {loading ? (
+          <div className="col-span-full rounded-2xl border border-neutral-200/80 bg-white p-16 text-center shadow-xs">
+            <div className="flex flex-col items-center justify-center gap-3">
+              <RefreshCw className="animate-spin text-[#5C0F17]" size={32} />
+              <p className="text-sm font-bold text-[#5C0F17]">Loading promotional banners...</p>
+              <p className="text-xs text-neutral-400">Fetching carousel slides from database</p>
             </div>
-
-            <div className="p-4 flex-1 flex flex-col justify-between">
-              <div>
-                <h2 className="font-serif text-base font-bold text-[#5C0F17] line-clamp-1">
-                  {banner.title}
-                </h2>
-                {banner.subtitle && (
-                  <p className="mt-1 text-xs text-[#2D1C13]/70 line-clamp-2">
-                    {banner.subtitle}
-                  </p>
-                )}
-                <p className="mt-2 text-[11px] text-[#DA9B26] font-mono">
-                  Link: {banner.link || "/"}
-                </p>
-              </div>
-
-              <div className="mt-4 flex items-center justify-between border-t border-[#EEDBC5] pt-3">
-                <button
-                  type="button"
-                  onClick={() => toggleActive(banner)}
-                  className="flex items-center gap-1.5 text-xs font-semibold text-[#2D1C13] hover:text-[#5C0F17]"
-                >
-                  {banner.active ? (
-                    <ToggleRight size={20} className="text-[#5C0F17]" />
-                  ) : (
-                    <ToggleLeft size={20} className="text-neutral-400" />
-                  )}
-                  {banner.active ? "Active" : "Hidden"}
-                </button>
-
-                <div className="flex items-center gap-1.5">
-                  <button
-                    type="button"
-                    onClick={() => openForm(banner)}
-                    aria-label="Edit banner"
-                    className="rounded-lg p-2 text-[#2D1C13]/70 hover:bg-[#FAF5ED] hover:text-[#5C0F17]"
-                  >
-                    <Pencil size={16} />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => removeBanner(banner._id || banner.id)}
-                    aria-label="Delete banner"
-                    className="rounded-lg p-2 text-red-500 hover:bg-red-50 hover:text-red-700"
-                    title="Delete banner"
-                  >
-                    <Trash2 size={16} />
-                  </button>
-                </div>
-              </div>
-            </div>
-          </article>
-        );})}
-
-        {banners.length === 0 && (
+          </div>
+        ) : banners.length === 0 ? (
           <div className="col-span-full rounded-2xl border border-dashed border-[#EEDBC5] bg-[#FFF8EE] p-12 text-center">
             <ImageIcon size={40} className="mx-auto text-[#DA9B26]/50" />
             <h3 className="mt-3 font-serif text-base font-bold text-[#5C0F17]">
               No Promotional Banners Found
             </h3>
             <p className="mt-1 text-xs text-[#2D1C13]/60">
-              Add up to {MAX_BANNERS} banners for the alternating carousel.
+              Add up to {MAX_BANNERS} banners for the alternating storefront carousel.
             </p>
+            <button
+              type="button"
+              onClick={() => openForm()}
+              className="mt-4 inline-flex items-center gap-2 rounded-xl bg-[#5C0F17] px-4 py-2 text-xs font-bold text-white hover:bg-[#4A0D15] transition"
+            >
+              <Plus size={14} /> Add First Banner
+            </button>
           </div>
+        ) : (
+          banners.map((banner) => {
+            const bId = banner._id || banner.id;
+            const isDeletingThis = deletingId === bId;
+            const isTogglingThis = togglingId === bId;
+
+            return (
+              <article
+                key={bId}
+                className="group relative overflow-hidden rounded-2xl border border-[#EEDBC5] bg-[#FFFDF9] shadow-xs flex flex-col justify-between transition hover:border-[#DA9B26] hover:shadow-md"
+              >
+                <input
+                  type="checkbox"
+                  checked={selectedIds.includes(bId)}
+                  onChange={() => {
+                    setSelectedIds((prev) =>
+                      prev.includes(bId) ? prev.filter((id) => id !== bId) : [...prev, bId]
+                    );
+                  }}
+                  className="absolute right-3 top-3 z-20 h-5 w-5 rounded accent-[#5C0F17] shadow-sm cursor-pointer"
+                />
+                <div className="relative aspect-[16/9] w-full overflow-hidden bg-[#FAF5ED]">
+                  <img
+                    src={resolveImageUrl(banner.imageUrl)}
+                    alt={banner.title}
+                    className="h-full w-full object-cover"
+                  />
+                  <span
+                    className={`absolute left-3 top-3 rounded-md px-2 py-0.5 text-[10px] font-extrabold tracking-wider ${
+                      banner.active ? "bg-emerald-700 text-white" : "bg-neutral-800 text-white"
+                    }`}
+                  >
+                    {banner.active ? "ACTIVE" : "INACTIVE"}
+                  </span>
+                </div>
+
+                <div className="p-4 flex-1 flex flex-col justify-between">
+                  <div>
+                    <h2 className="font-serif text-base font-bold text-[#5C0F17] line-clamp-1">
+                      {banner.title}
+                    </h2>
+                    {banner.subtitle && (
+                      <p className="mt-1 text-xs text-[#2D1C13]/70 line-clamp-2">
+                        {banner.subtitle}
+                      </p>
+                    )}
+                    <p className="mt-2 text-[11px] text-[#DA9B26] font-mono">
+                      Link: {banner.link || "/"}
+                    </p>
+                  </div>
+
+                  <div className="mt-4 flex items-center justify-between border-t border-[#EEDBC5] pt-3">
+                    <button
+                      type="button"
+                      disabled={isTogglingThis}
+                      onClick={() => toggleActive(banner)}
+                      className="flex items-center gap-1.5 text-xs font-semibold text-[#2D1C13] hover:text-[#5C0F17] disabled:opacity-50"
+                    >
+                      {isTogglingThis ? (
+                        <RefreshCw size={16} className="animate-spin text-[#5C0F17]" />
+                      ) : banner.active ? (
+                        <ToggleRight size={20} className="text-[#5C0F17]" />
+                      ) : (
+                        <ToggleLeft size={20} className="text-neutral-400" />
+                      )}
+                      <span>{banner.active ? "Active" : "Hidden"}</span>
+                    </button>
+
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        disabled={isDeletingThis || saving}
+                        onClick={() => openForm(banner)}
+                        aria-label="Edit banner"
+                        className="rounded-lg p-2 text-[#2D1C13]/70 hover:bg-[#FAF5ED] hover:text-[#5C0F17] disabled:opacity-40 transition"
+                      >
+                        <Pencil size={16} />
+                      </button>
+                      <button
+                        type="button"
+                        disabled={isDeletingThis || saving}
+                        onClick={() => removeBanner(bId)}
+                        aria-label="Delete banner"
+                        className="rounded-lg p-2 text-rose-600 hover:bg-rose-50 hover:text-rose-700 disabled:opacity-40 transition"
+                        title="Delete banner"
+                      >
+                        {isDeletingThis ? (
+                          <RefreshCw size={16} className="animate-spin text-rose-600" />
+                        ) : (
+                          <Trash2 size={16} />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </article>
+            );
+          })
         )}
       </div>
 
+      {/* Modal Dialog with Loading Feedback */}
       {formOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
           <div className="relative max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-3xl border border-[#EEDBC5] bg-[#FFFDF9] p-6 sm:p-8 shadow-2xl">
             <button
               type="button"
+              disabled={saving || uploading}
               onClick={() => setFormOpen(false)}
-              className="absolute right-5 top-5 rounded-full p-2 text-neutral-400 hover:bg-neutral-100"
+              className="absolute right-5 top-5 rounded-full p-2 text-neutral-400 hover:bg-neutral-100 disabled:opacity-40"
             >
               <X size={20} />
             </button>
@@ -426,6 +516,7 @@ export default function BannersPage() {
                 <input
                   required
                   maxLength={60}
+                  disabled={saving}
                   value={form.title}
                   onChange={(e) => {
                     setForm({ ...form, title: e.target.value });
@@ -442,7 +533,7 @@ export default function BannersPage() {
               <div>
                 <div className="flex justify-between items-center">
                   <label className="text-xs font-bold uppercase tracking-wider text-[#5C0F17]">
-                    Description / Subtitle
+                    Description / Subtitle *
                   </label>
                   <span className="text-[10px] text-[#2D1C13]/50">
                     {form.subtitle.length}/160
@@ -452,6 +543,7 @@ export default function BannersPage() {
                   rows={2}
                   maxLength={160}
                   required
+                  disabled={saving}
                   value={form.subtitle}
                   onChange={(e) => {
                     setForm({ ...form, subtitle: e.target.value });
@@ -472,6 +564,7 @@ export default function BannersPage() {
                   </label>
                   <input
                     maxLength={30}
+                    disabled={saving}
                     value={form.ctaText}
                     onChange={(e) => setForm({ ...form, ctaText: e.target.value })}
                     className={fieldClass}
@@ -485,6 +578,7 @@ export default function BannersPage() {
                   </label>
                   <input
                     maxLength={250}
+                    disabled={saving}
                     value={form.link}
                     onChange={(e) => setForm({ ...form, link: e.target.value })}
                     className={fieldClass}
@@ -500,14 +594,16 @@ export default function BannersPage() {
                 <input
                   ref={fileInputRef}
                   type="file"
+                  disabled={saving || uploading}
                   accept="image/jpeg,image/png,image/webp"
                   onChange={handleImageSelect}
-                  className="mt-1.5 block w-full text-xs text-[#2D1C13] file:mr-3 file:rounded-xl file:border-0 file:bg-[#5C0F17] file:px-4 file:py-2.5 file:text-xs file:font-bold file:text-white hover:file:bg-[#4A0D15]"
+                  className="mt-1.5 block w-full text-xs text-[#2D1C13] file:mr-3 file:rounded-xl file:border-0 file:bg-[#5C0F17] file:px-4 file:py-2.5 file:text-xs file:font-bold file:text-white hover:file:bg-[#4A0D15] disabled:opacity-50"
                 />
                 {uploading && (
-                  <p className="mt-2 text-xs font-semibold text-[#5C0F17]">
-                    Uploading image to persistent storage...
-                  </p>
+                  <div className="mt-2 flex items-center gap-2 text-xs font-semibold text-[#5C0F17]">
+                    <RefreshCw size={13} className="animate-spin text-[#DA9B26]" />
+                    <span>Uploading banner image to persistent storage...</span>
+                  </div>
                 )}
                 {fieldErrors.imageUrl && (
                   <p className="mt-1 text-[11px] font-semibold text-rose-600">{fieldErrors.imageUrl}</p>
@@ -527,11 +623,12 @@ export default function BannersPage() {
                 <input
                   type="checkbox"
                   id="active-toggle"
+                  disabled={saving}
                   checked={form.active}
                   onChange={(e) => setForm({ ...form, active: e.target.checked })}
                   className="h-4 w-4 rounded accent-[#5C0F17]"
                 />
-                <label htmlFor="active-toggle" className="text-xs font-bold text-[#5C0F17]">
+                <label htmlFor="active-toggle" className="text-xs font-bold text-[#5C0F17] cursor-pointer">
                   Active (Display on customer storefront carousel)
                 </label>
               </div>
@@ -539,17 +636,19 @@ export default function BannersPage() {
               <div className="flex justify-end gap-3 pt-4 border-t border-[#EEDBC5]">
                 <button
                   type="button"
+                  disabled={saving || uploading}
                   onClick={() => setFormOpen(false)}
-                  className="rounded-xl border border-[#EEDBC5] px-5 py-2.5 text-xs font-bold text-[#2D1C13] hover:bg-[#FAF5ED]"
+                  className="rounded-xl border border-[#EEDBC5] px-5 py-2.5 text-xs font-bold text-[#2D1C13] hover:bg-[#FAF5ED] disabled:opacity-50"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={saving || uploading}
-                  className="rounded-xl bg-[#5C0F17] px-6 py-2.5 text-xs font-bold text-white shadow-md shadow-[#5C0F17]/20 transition hover:bg-[#4A0D15] disabled:opacity-50"
+                  className="inline-flex items-center gap-2 rounded-xl bg-[#5C0F17] px-6 py-2.5 text-xs font-bold text-white shadow-md shadow-[#5C0F17]/20 transition hover:bg-[#4A0D15] disabled:opacity-50"
                 >
-                  {saving ? "Saving..." : editingId ? "Update Banner" : "Create Banner"}
+                  {saving && <RefreshCw size={14} className="animate-spin" />}
+                  <span>{saving ? (editingId ? "Updating Banner..." : "Creating Banner...") : editingId ? "Update Banner" : "Create Banner"}</span>
                 </button>
               </div>
             </form>

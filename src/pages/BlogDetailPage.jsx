@@ -21,6 +21,7 @@ import {
 import { blogService } from "../services/blogService";
 import { uploadService } from "../services/uploadService";
 import { resolveImageUrl } from "../utils/imageHelper";
+import { validateArticleContent, extractMeaningfulText } from "../utils/blogContentValidator";
 import ArticleContentRenderer from "../components/common/ArticleContentRenderer";
 import RichTextEditor from "../components/common/RichTextEditor";
 
@@ -161,11 +162,21 @@ export default function BlogDetailPage() {
   const handleEditInputChange = (field, value) => {
     setEditFormData((prev) => ({ ...prev, [field]: value }));
     if (editFieldErrors[field]) {
-      setEditFieldErrors((prev) => {
-        const copy = { ...prev };
-        delete copy[field];
-        return copy;
-      });
+      if (field === "content") {
+        if (validateArticleContent(value).valid) {
+          setEditFieldErrors((prev) => {
+            const copy = { ...prev };
+            delete copy[field];
+            return copy;
+          });
+        }
+      } else {
+        setEditFieldErrors((prev) => {
+          const copy = { ...prev };
+          delete copy[field];
+          return copy;
+        });
+      }
     }
   };
 
@@ -214,7 +225,11 @@ export default function BlogDetailPage() {
     else if (shortDesc.length > 180) errors.shortDescription = "Short description cannot exceed 180 characters.";
 
     if (!cover) errors.coverImage = "Cover image is required.";
-    if (!content || content.length < 10) errors.content = "Article content is required (at least 10 characters).";
+
+    const contentValidation = validateArticleContent(editFormData.content);
+    if (!contentValidation.valid) {
+      errors.content = contentValidation.error;
+    }
 
     setEditFieldErrors(errors);
     return Object.keys(errors).length === 0;
@@ -354,26 +369,6 @@ export default function BlogDetailPage() {
 
         {/* Right: Action Buttons */}
         <div className="flex flex-wrap items-center gap-2">
-          {/* View as Customer */}
-          {article.status === "published" ? (
-            <a
-              href={`http://localhost:5173/blog/${article.slug}`}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center gap-1.5 rounded-xl border border-[#DA9B26]/40 bg-[#FAF5ED] px-3.5 py-2 text-xs font-bold text-[#5C0F17] hover:bg-[#F3E9DA] shadow-xs transition"
-            >
-              <ExternalLink size={14} className="text-[#DA9B26]" />
-              <span>View as Customer</span>
-            </a>
-          ) : (
-            <span
-              title="Draft articles cannot be viewed by public customers until published"
-              className="inline-flex items-center gap-1.5 rounded-xl border border-neutral-200 bg-neutral-100 px-3.5 py-2 text-xs font-bold text-neutral-400 cursor-not-allowed"
-            >
-              <Eye size={14} />
-              <span>Customer View (Draft)</span>
-            </span>
-          )}
 
           {/* Edit Article */}
           <button
@@ -832,8 +827,13 @@ export default function BlogDetailPage() {
                 </button>
                 <button
                   type="submit"
-                  disabled={editSubmitting}
-                  className="inline-flex items-center gap-2 rounded-xl bg-[#5C0F17] px-5 py-2 text-xs font-bold text-white hover:bg-[#4A0D15] shadow-xs transition disabled:opacity-50"
+                  disabled={editSubmitting || !validateArticleContent(editFormData.content).valid}
+                  title={
+                    !validateArticleContent(editFormData.content).valid
+                      ? "Content must contain at least 100 meaningful characters"
+                      : ""
+                  }
+                  className="inline-flex items-center gap-2 rounded-xl bg-[#5C0F17] px-5 py-2 text-xs font-bold text-white hover:bg-[#4A0D15] shadow-xs transition disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {editSubmitting && <RefreshCw size={13} className="animate-spin" />}
                   <span>Save Changes</span>

@@ -24,6 +24,7 @@ import {
 import { blogService } from "../services/blogService";
 import { uploadService } from "../services/uploadService";
 import { resolveImageUrl } from "../utils/imageHelper";
+import { validateArticleContent, extractMeaningfulText } from "../utils/blogContentValidator";
 import RichTextEditor from "../components/common/RichTextEditor";
 import ArticleContentRenderer from "../components/common/ArticleContentRenderer";
 
@@ -219,11 +220,21 @@ export default function BlogPage() {
     });
 
     if (articleFieldErrors[field]) {
-      setArticleFieldErrors((prev) => {
-        const copy = { ...prev };
-        delete copy[field];
-        return copy;
-      });
+      if (field === "content") {
+        if (validateArticleContent(value).valid) {
+          setArticleFieldErrors((prev) => {
+            const copy = { ...prev };
+            delete copy[field];
+            return copy;
+          });
+        }
+      } else {
+        setArticleFieldErrors((prev) => {
+          const copy = { ...prev };
+          delete copy[field];
+          return copy;
+        });
+      }
     }
   };
 
@@ -292,10 +303,9 @@ export default function BlogPage() {
       errors.coverImage = "Cover image is required. Upload an image or provide a valid URL.";
     }
 
-    if (!content) {
-      errors.content = "Article content is required.";
-    } else if (content.length < 10) {
-      errors.content = "Article content must be at least 10 characters.";
+    const contentValidation = validateArticleContent(articleFormData.content);
+    if (!contentValidation.valid) {
+      errors.content = contentValidation.error;
     }
 
     setArticleFieldErrors(errors);
@@ -610,18 +620,16 @@ export default function BlogPage() {
         <button
           type="button"
           onClick={() => setActiveTab("articles")}
-          className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition shadow-xs ${
-            activeTab === "articles"
+          className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition shadow-xs ${activeTab === "articles"
               ? "bg-[#5C0F17] text-white"
               : "bg-white text-neutral-600 border border-neutral-200 hover:bg-neutral-50"
-          }`}
+            }`}
         >
           <FileText size={15} />
           <span>Articles</span>
           <span
-            className={`rounded-full px-1.5 py-0.2 text-[10px] font-black ${
-              activeTab === "articles" ? "bg-white/20 text-white" : "bg-neutral-100 text-neutral-600"
-            }`}
+            className={`rounded-full px-1.5 py-0.2 text-[10px] font-black ${activeTab === "articles" ? "bg-white/20 text-white" : "bg-neutral-100 text-neutral-600"
+              }`}
           >
             {summary.total || articles.length}
           </span>
@@ -630,18 +638,16 @@ export default function BlogPage() {
         <button
           type="button"
           onClick={() => setActiveTab("categories")}
-          className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition shadow-xs ${
-            activeTab === "categories"
+          className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition shadow-xs ${activeTab === "categories"
               ? "bg-[#5C0F17] text-white"
               : "bg-white text-neutral-600 border border-neutral-200 hover:bg-neutral-50"
-          }`}
+            }`}
         >
           <Tags size={15} />
           <span>Categories</span>
           <span
-            className={`rounded-full px-1.5 py-0.2 text-[10px] font-black ${
-              activeTab === "categories" ? "bg-white/20 text-white" : "bg-neutral-100 text-neutral-600"
-            }`}
+            className={`rounded-full px-1.5 py-0.2 text-[10px] font-black ${activeTab === "categories" ? "bg-white/20 text-white" : "bg-neutral-100 text-neutral-600"
+              }`}
           >
             {categories.length}
           </span>
@@ -836,16 +842,14 @@ export default function BlogPage() {
                             type="button"
                             onClick={() => handleToggleStatus(art)}
                             title="Click to toggle status"
-                            className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold transition ${
-                              art.status === "published"
+                            className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold transition ${art.status === "published"
                                 ? "bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100"
                                 : "bg-neutral-100 text-neutral-600 border border-neutral-200 hover:bg-neutral-200"
-                            }`}
+                              }`}
                           >
                             <span
-                              className={`h-1.5 w-1.5 rounded-full ${
-                                art.status === "published" ? "bg-emerald-500" : "bg-neutral-400"
-                              }`}
+                              className={`h-1.5 w-1.5 rounded-full ${art.status === "published" ? "bg-emerald-500" : "bg-neutral-400"
+                                }`}
                             />
                             {art.status === "published" ? "Published" : "Draft"}
                           </button>
@@ -855,10 +859,10 @@ export default function BlogPage() {
                         <td className="py-4 px-4 whitespace-nowrap text-neutral-500 font-mono text-[11px]">
                           {art.publishedAt
                             ? new Date(art.publishedAt).toLocaleDateString("en-IN", {
-                                day: "2-digit",
-                                month: "short",
-                                year: "numeric",
-                              })
+                              day: "2-digit",
+                              month: "short",
+                              year: "numeric",
+                            })
                             : "—"}
                         </td>
 
@@ -879,17 +883,6 @@ export default function BlogPage() {
                               <Eye size={14} />
                             </Link>
 
-                            {art.status === "published" && (
-                              <a
-                                href={`http://localhost:5173/blog/${art.slug}`}
-                                target="_blank"
-                                rel="noreferrer"
-                                title="Open Live Customer Page"
-                                className="flex h-8 w-8 items-center justify-center rounded-xl text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 transition"
-                              >
-                                <ExternalLink size={14} />
-                              </a>
-                            )}
                             <button
                               type="button"
                               onClick={() => openEditArticleModal(art)}
@@ -1008,11 +1001,10 @@ export default function BlogPage() {
 
                       <td className="py-4 px-4 text-center whitespace-nowrap">
                         <span
-                          className={`inline-flex items-center justify-center rounded-full px-2.5 py-0.5 text-[11px] font-bold ${
-                            (cat.articleCount || 0) > 0
+                          className={`inline-flex items-center justify-center rounded-full px-2.5 py-0.5 text-[11px] font-bold ${(cat.articleCount || 0) > 0
                               ? "bg-[#5C0F17]/10 text-[#5C0F17] border border-[#5C0F17]/20"
                               : "bg-neutral-100 text-neutral-400"
-                          }`}
+                            }`}
                         >
                           {cat.articleCount || 0} articles
                         </span>
@@ -1079,9 +1071,8 @@ export default function BlogPage() {
                     Article Title <span className="text-rose-600">*</span>
                   </label>
                   <span
-                    className={`text-[11px] font-mono ${
-                      articleFormData.title.length > 80 ? "text-rose-600 font-bold" : "text-neutral-400"
-                    }`}
+                    className={`text-[11px] font-mono ${articleFormData.title.length > 80 ? "text-rose-600 font-bold" : "text-neutral-400"
+                      }`}
                   >
                     {articleFormData.title.length}/80
                   </span>
@@ -1092,11 +1083,10 @@ export default function BlogPage() {
                   placeholder="Enter descriptive article title (e.g. Complete Shravan Puja Rituals at Home)"
                   value={articleFormData.title}
                   onChange={(e) => handleArticleInputChange("title", e.target.value)}
-                  className={`w-full rounded-2xl border px-3.5 py-2.5 text-xs font-medium transition ${
-                    articleFieldErrors.title
+                  className={`w-full rounded-2xl border px-3.5 py-2.5 text-xs font-medium transition ${articleFieldErrors.title
                       ? "border-rose-500 bg-rose-50/30 text-rose-900"
                       : "border-neutral-200 bg-neutral-50/50 focus:border-[#5C0F17] focus:bg-white"
-                  }`}
+                    }`}
                 />
                 {articleFieldErrors.title && (
                   <p className="mt-1 text-[11px] font-semibold text-rose-600">
@@ -1114,9 +1104,8 @@ export default function BlogPage() {
                       URL Slug <span className="text-rose-600">*</span>
                     </label>
                     <span
-                      className={`text-[11px] font-mono ${
-                        articleFormData.slug.length > 100 ? "text-rose-600 font-bold" : "text-neutral-400"
-                      }`}
+                      className={`text-[11px] font-mono ${articleFormData.slug.length > 100 ? "text-rose-600 font-bold" : "text-neutral-400"
+                        }`}
                     >
                       {articleFormData.slug.length}/100
                     </span>
@@ -1130,11 +1119,10 @@ export default function BlogPage() {
                       setAutoArticleSlug(false);
                       handleArticleInputChange("slug", e.target.value.toLowerCase().replace(/\s+/g, "-"));
                     }}
-                    className={`w-full rounded-2xl border px-3.5 py-2.5 text-xs font-mono transition ${
-                      articleFieldErrors.slug
+                    className={`w-full rounded-2xl border px-3.5 py-2.5 text-xs font-mono transition ${articleFieldErrors.slug
                         ? "border-rose-500 bg-rose-50/30 text-rose-900"
                         : "border-neutral-200 bg-neutral-50/50 focus:border-[#5C0F17] focus:bg-white"
-                    }`}
+                      }`}
                   />
                   {articleFieldErrors.slug ? (
                     <p className="mt-1 text-[11px] font-semibold text-rose-600">
@@ -1162,11 +1150,10 @@ export default function BlogPage() {
                       handleArticleInputChange("category", selectedName);
                       handleArticleInputChange("categoryId", matchedCat ? matchedCat._id : null);
                     }}
-                    className={`w-full rounded-2xl border px-3.5 py-2.5 text-xs font-medium transition ${
-                      articleFieldErrors.category
+                    className={`w-full rounded-2xl border px-3.5 py-2.5 text-xs font-medium transition ${articleFieldErrors.category
                         ? "border-rose-500 bg-rose-50/30 text-rose-900"
                         : "border-neutral-200 bg-neutral-50/50 focus:border-[#5C0F17] focus:bg-white"
-                    }`}
+                      }`}
                   >
                     <option value="">Select Blog Category</option>
                     {categories.map((cat) => (
@@ -1190,11 +1177,10 @@ export default function BlogPage() {
                     Short Description <span className="text-rose-600">*</span>
                   </label>
                   <span
-                    className={`text-[11px] font-mono ${
-                      articleFormData.shortDescription.length > 180
+                    className={`text-[11px] font-mono ${articleFormData.shortDescription.length > 180
                         ? "text-rose-600 font-bold"
                         : "text-neutral-400"
-                    }`}
+                      }`}
                   >
                     {articleFormData.shortDescription.length}/180
                   </span>
@@ -1205,11 +1191,10 @@ export default function BlogPage() {
                   placeholder="Concise overview summarizing the article for catalog listings and cards..."
                   value={articleFormData.shortDescription}
                   onChange={(e) => handleArticleInputChange("shortDescription", e.target.value)}
-                  className={`w-full rounded-2xl border px-3.5 py-2 text-xs font-medium transition ${
-                    articleFieldErrors.shortDescription
+                  className={`w-full rounded-2xl border px-3.5 py-2 text-xs font-medium transition ${articleFieldErrors.shortDescription
                       ? "border-rose-500 bg-rose-50/30 text-rose-900"
                       : "border-neutral-200 bg-neutral-50/50 focus:border-[#5C0F17] focus:bg-white"
-                  }`}
+                    }`}
                 />
                 {articleFieldErrors.shortDescription && (
                   <p className="mt-1 text-[11px] font-semibold text-rose-600">
@@ -1230,11 +1215,10 @@ export default function BlogPage() {
                       placeholder="Enter direct image URL or upload below..."
                       value={articleFormData.coverImage}
                       onChange={(e) => handleArticleInputChange("coverImage", e.target.value)}
-                      className={`w-full rounded-2xl border px-3.5 py-2.5 text-xs font-mono transition ${
-                        articleFieldErrors.coverImage
+                      className={`w-full rounded-2xl border px-3.5 py-2.5 text-xs font-mono transition ${articleFieldErrors.coverImage
                           ? "border-rose-500 bg-rose-50/30 text-rose-900"
                           : "border-neutral-200 bg-neutral-50/50 focus:border-[#5C0F17] focus:bg-white"
-                      }`}
+                        }`}
                     />
 
                     <div className="flex items-center gap-2">
@@ -1286,22 +1270,20 @@ export default function BlogPage() {
                     <button
                       type="button"
                       onClick={() => setContentTab("edit")}
-                      className={`px-3 py-1 rounded-lg transition ${
-                        contentTab === "edit"
+                      className={`px-3 py-1 rounded-lg transition ${contentTab === "edit"
                           ? "bg-white text-neutral-900 shadow-xs"
                           : "text-neutral-500 hover:text-neutral-800"
-                      }`}
+                        }`}
                     >
                       Editor
                     </button>
                     <button
                       type="button"
                       onClick={() => setContentTab("preview")}
-                      className={`px-3 py-1 rounded-lg transition ${
-                        contentTab === "preview"
+                      className={`px-3 py-1 rounded-lg transition ${contentTab === "preview"
                           ? "bg-white text-neutral-900 shadow-xs"
                           : "text-neutral-500 hover:text-neutral-800"
-                      }`}
+                        }`}
                     >
                       Live Preview
                     </button>
@@ -1407,8 +1389,13 @@ export default function BlogPage() {
               <button
                 type="button"
                 onClick={handleArticleFormSubmit}
-                disabled={articleSubmitting}
-                className="inline-flex items-center gap-2 rounded-xl bg-[#5C0F17] px-5 py-2 text-xs font-bold text-white hover:bg-[#4A0D15] shadow-xs transition disabled:opacity-50"
+                disabled={articleSubmitting || !validateArticleContent(articleFormData.content).valid}
+                title={
+                  !validateArticleContent(articleFormData.content).valid
+                    ? "Content must contain at least 100 meaningful characters"
+                    : ""
+                }
+                className="inline-flex items-center gap-2 rounded-xl bg-[#5C0F17] px-5 py-2 text-xs font-bold text-white hover:bg-[#4A0D15] shadow-xs transition disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {articleSubmitting && <RefreshCw size={13} className="animate-spin" />}
                 <span>{editingArticle ? "Save Changes" : "Create Article"}</span>
@@ -1450,9 +1437,8 @@ export default function BlogPage() {
                     Category Name <span className="text-rose-600">*</span>
                   </label>
                   <span
-                    className={`text-[11px] font-mono ${
-                      categoryFormData.name.length > 40 ? "text-rose-600 font-bold" : "text-neutral-400"
-                    }`}
+                    className={`text-[11px] font-mono ${categoryFormData.name.length > 40 ? "text-rose-600 font-bold" : "text-neutral-400"
+                      }`}
                   >
                     {categoryFormData.name.length}/40
                   </span>
@@ -1463,11 +1449,10 @@ export default function BlogPage() {
                   placeholder="e.g. Festival Guides"
                   value={categoryFormData.name}
                   onChange={(e) => handleCategoryInputChange("name", e.target.value)}
-                  className={`w-full rounded-2xl border px-3.5 py-2.5 text-xs font-medium transition ${
-                    categoryFieldErrors.name
+                  className={`w-full rounded-2xl border px-3.5 py-2.5 text-xs font-medium transition ${categoryFieldErrors.name
                       ? "border-rose-500 bg-rose-50/30 text-rose-900"
                       : "border-neutral-200 bg-neutral-50/50 focus:border-[#5C0F17] focus:bg-white"
-                  }`}
+                    }`}
                 />
                 {categoryFieldErrors.name && (
                   <p className="mt-1 text-[11px] font-semibold text-rose-600">
@@ -1483,9 +1468,8 @@ export default function BlogPage() {
                     Slug <span className="text-rose-600">*</span>
                   </label>
                   <span
-                    className={`text-[11px] font-mono ${
-                      categoryFormData.slug.length > 60 ? "text-rose-600 font-bold" : "text-neutral-400"
-                    }`}
+                    className={`text-[11px] font-mono ${categoryFormData.slug.length > 60 ? "text-rose-600 font-bold" : "text-neutral-400"
+                      }`}
                   >
                     {categoryFormData.slug.length}/60
                   </span>
@@ -1499,11 +1483,10 @@ export default function BlogPage() {
                     setAutoCategorySlug(false);
                     handleCategoryInputChange("slug", e.target.value.toLowerCase().replace(/\s+/g, "-"));
                   }}
-                  className={`w-full rounded-2xl border px-3.5 py-2.5 text-xs font-mono transition ${
-                    categoryFieldErrors.slug
+                  className={`w-full rounded-2xl border px-3.5 py-2.5 text-xs font-mono transition ${categoryFieldErrors.slug
                       ? "border-rose-500 bg-rose-50/30 text-rose-900"
                       : "border-neutral-200 bg-neutral-50/50 focus:border-[#5C0F17] focus:bg-white"
-                  }`}
+                    }`}
                 />
                 {categoryFieldErrors.slug && (
                   <p className="mt-1 text-[11px] font-semibold text-rose-600">
@@ -1519,11 +1502,10 @@ export default function BlogPage() {
                     Description <span className="text-neutral-400 font-normal">(Optional)</span>
                   </label>
                   <span
-                    className={`text-[11px] font-mono ${
-                      categoryFormData.description.length > 150
+                    className={`text-[11px] font-mono ${categoryFormData.description.length > 150
                         ? "text-rose-600 font-bold"
                         : "text-neutral-400"
-                    }`}
+                      }`}
                   >
                     {categoryFormData.description.length}/150
                   </span>
@@ -1534,11 +1516,10 @@ export default function BlogPage() {
                   placeholder="Brief summary of articles grouped under this category..."
                   value={categoryFormData.description}
                   onChange={(e) => handleCategoryInputChange("description", e.target.value)}
-                  className={`w-full rounded-2xl border px-3.5 py-2 text-xs font-medium transition ${
-                    categoryFieldErrors.description
+                  className={`w-full rounded-2xl border px-3.5 py-2 text-xs font-medium transition ${categoryFieldErrors.description
                       ? "border-rose-500 bg-rose-50/30 text-rose-900"
                       : "border-neutral-200 bg-neutral-50/50 focus:border-[#5C0F17] focus:bg-white"
-                  }`}
+                    }`}
                 />
                 {categoryFieldErrors.description && (
                   <p className="mt-1 text-[11px] font-semibold text-rose-600">

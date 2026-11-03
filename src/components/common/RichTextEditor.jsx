@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { extractMeaningfulText } from "../../utils/blogContentValidator";
 import {
   Bold,
   Italic,
@@ -157,10 +158,11 @@ export default function RichTextEditor({
     setImageAlt("");
   };
 
-  // Word and character count calculation
-  const plainText = (editorRef.current?.innerText || "").trim();
-  const charCount = plainText.length;
-  const wordCount = plainText ? plainText.split(/\s+/).length : 0;
+  // Word and character count calculation based on meaningful text and raw HTML
+  const meaningfulText = extractMeaningfulText(value);
+  const meaningfulCharCount = meaningfulText.length;
+  const wordCount = meaningfulText ? meaningfulText.split(/\s+/).length : 0;
+  const rawCharCount = value ? value.length : 0;
 
   return (
     <div className="rounded-2xl border border-neutral-200 bg-white overflow-hidden shadow-xs focus-within:border-[#5C0F17] transition flex flex-col">
@@ -343,15 +345,40 @@ export default function RichTextEditor({
       />
 
       {/* 3. Bottom Stats Bar */}
-      <div className="flex items-center justify-between border-t border-neutral-100 bg-[#FAF6F0]/60 px-4 py-2 text-[11px] text-neutral-500 font-medium">
-        <span className="flex items-center gap-1 text-[#DA9B26] font-bold">
-          <span className="h-1.5 w-1.5 rounded-full bg-[#DA9B26]" />
-          Visual WYSIWYG Document Editor
-        </span>
-        <div className="flex items-center gap-3 font-mono">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-neutral-100 bg-[#FAF6F0]/70 px-4 py-2 text-[11px] font-medium">
+        <div className="flex items-center gap-2">
+          <span className="flex items-center gap-1.5 text-[#5C0F17] font-bold">
+            <span className="h-1.5 w-1.5 rounded-full bg-[#DA9B26]" />
+            WYSIWYG Article Editor
+          </span>
+          <span className="text-neutral-300">•</span>
+          <span
+            className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold ${
+              meaningfulCharCount >= 100
+                ? "bg-emerald-100 text-emerald-800 border border-emerald-200"
+                : "bg-rose-100 text-rose-800 border border-rose-200"
+            }`}
+          >
+            {meaningfulCharCount >= 100
+              ? "✓ Minimum 100 characters met"
+              : `Minimum 100 characters required (${100 - meaningfulCharCount} more needed)`}
+          </span>
+        </div>
+
+        <div className="flex items-center gap-3 font-mono text-neutral-600">
           <span>{wordCount} words</span>
           <span>•</span>
-          <span>{charCount} characters</span>
+          <span
+            className={
+              meaningfulCharCount < 100
+                ? "text-rose-600 font-bold"
+                : rawCharCount > 20000
+                ? "text-rose-600 font-bold"
+                : "text-emerald-700 font-bold"
+            }
+          >
+            {meaningfulCharCount.toLocaleString()} / 20,000 chars
+          </span>
         </div>
       </div>
 

@@ -288,7 +288,7 @@ export default function OrderDetailPage() {
               {order.orderNumber}
             </h2>
             <p className="text-xs text-[#D8C7B8] mt-1">
-              Payment Method: <b className="uppercase text-white">{order.paymentMethod || "COD"}</b>
+              Payment Method: <b className="uppercase text-white">{order.paymentMethod || "RAZORPAY"}</b>
               {transactionId && (
                 <span className="ml-3 font-mono text-[11px] text-[#DA9B26]">
                   Ref: {transactionId}
@@ -481,7 +481,7 @@ export default function OrderDetailPage() {
               Payment Method
             </span>
             <span className="font-bold text-neutral-900 uppercase mt-1 block">
-              {order.paymentMethod || "COD"}
+              {order.paymentMethod || "RAZORPAY"}
             </span>
           </div>
 

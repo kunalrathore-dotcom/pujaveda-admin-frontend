@@ -420,7 +420,7 @@ export default function OrdersPage() {
                       </td>
                       <td className="px-5 py-4">
                         <div className="flex items-center gap-1.5">
-                          <span className="font-semibold uppercase text-neutral-700">{order.paymentMethod || "cod"}</span>
+                          <span className="font-semibold uppercase text-neutral-700">{order.paymentMethod || "razorpay"}</span>
                           <span
                             className={`rounded-full border px-2 py-0.5 text-[10px] font-bold ${getPaymentStatusBadge(
                               order.paymentStatus
@@ -679,7 +679,7 @@ export default function OrdersPage() {
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-neutral-600 pt-1">
                 <div>
                   <span className="text-neutral-400 block text-[11px]">Payment Method</span>
-                  <b className="uppercase text-neutral-800">{selectedOrder.paymentMethod || "cod"}</b>
+                  <b className="uppercase text-neutral-800">{selectedOrder.paymentMethod || "razorpay"}</b>
                 </div>
                 <div>
                   <span className="text-neutral-400 block text-[11px]">Payment Status</span>

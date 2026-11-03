@@ -20,6 +20,7 @@ import CustomerDetailPage from "./pages/CustomerDetailPage";
 import CouponsPage from "./pages/CouponsPage";
 import BlogPage from "./pages/BlogPage";
 import BlogDetailPage from "./pages/BlogDetailPage";
+import LegalPagesPage from "./pages/LegalPagesPage";
 import TaxSettingsPage from "./pages/TaxSettingsPage";
 import AuditLogsPage from "./pages/AuditLogsPage";
 import ScrollToTop from "./components/common/ScrollToTop";
@@ -59,6 +60,7 @@ export default function App() {
             <Route path="blog" element={<BlogPage />} />
             <Route path="blog/:id" element={<BlogDetailPage />} />
             <Route path="tax-fees" element={<TaxSettingsPage />} />
+            <Route path="legal-pages" element={<LegalPagesPage />} />
             {/* Backward compatibility redirect for old taxes link */}
             <Route path="taxes" element={<Navigate to="/tax-fees" replace />} />
             <Route path="audit-logs" element={<AuditLogsPage />} />

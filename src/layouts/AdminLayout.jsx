@@ -15,6 +15,7 @@ import {
   ChevronDown,
   IndianRupee,
   BookOpen,
+  FileText,
 } from "lucide-react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAdminAuth } from "../context/AdminAuthContext";
@@ -33,6 +34,7 @@ const links = [
   { label: "Coupons", to: "/coupons", icon: TicketPercent },
   { label: "Blog", to: "/blog", icon: BookOpen },
   { label: "Tax & Fees", to: "/tax-fees", icon: Receipt },
+  { label: "Legal Pages", to: "/legal-pages", icon: FileText },
   { label: "Audit Logs", to: "/audit-logs", icon: Activity },
 ];
 

@@ -28,10 +28,9 @@ const blank = {
 };
 
 const getFieldClass = (hasError) =>
-  `mt-1.5 w-full rounded-xl border px-3.5 py-2.5 text-sm text-[#2D1C13] outline-none transition ${
-    hasError
-      ? "border-rose-500 ring-1 ring-rose-500 bg-rose-50/20 focus:border-rose-600 focus:ring-rose-500"
-      : "border-[#EEDBC5] bg-white focus:border-[#5C0F17] focus:ring-2 focus:ring-[#DA9B26]/20"
+  `mt-1.5 w-full rounded-xl border px-3.5 py-2.5 text-sm text-[#2D1C13] outline-none transition ${hasError
+    ? "border-rose-500 ring-1 ring-rose-500 bg-rose-50/20 focus:border-rose-600 focus:ring-rose-500"
+    : "border-[#EEDBC5] bg-white focus:border-[#5C0F17] focus:ring-2 focus:ring-[#DA9B26]/20"
   }`;
 const fieldClass = getFieldClass(false);
 
@@ -74,15 +73,15 @@ export default function BannersPage() {
     setForm(
       banner
         ? {
-            title: banner.title || "",
-            subtitle: banner.subtitle || "",
-            imageUrl: banner.imageUrl || "",
-            imageId: banner.imageId || "",
-            ctaText: banner.ctaText || "Explore Collection",
-            link: banner.link || "/category/puja-items",
-            active: Boolean(banner.active),
-            order: banner.order || 0,
-          }
+          title: banner.title || "",
+          subtitle: banner.subtitle || "",
+          imageUrl: banner.imageUrl || "",
+          imageId: banner.imageId || "",
+          ctaText: banner.ctaText || "Explore Collection",
+          link: banner.link || "/category/puja-items",
+          active: Boolean(banner.active),
+          order: banner.order || 0,
+        }
         : { ...blank }
     );
     setError("");
@@ -363,7 +362,7 @@ export default function BannersPage() {
           <div className="col-span-full rounded-2xl border border-neutral-200/80 bg-white p-16 text-center shadow-xs">
             <div className="flex flex-col items-center justify-center gap-3">
               <RefreshCw className="animate-spin text-[#5C0F17]" size={32} />
-              <p className="text-sm font-bold text-[#5C0F17]">Loading promotional banners...</p>
+              <p className="text-sm font-bold text-[#5C0F17]">Loading banners...</p>
               <p className="text-xs text-neutral-400">Fetching carousel slides from database</p>
             </div>
           </div>
@@ -412,9 +411,8 @@ export default function BannersPage() {
                     className="h-full w-full object-cover"
                   />
                   <span
-                    className={`absolute left-3 top-3 rounded-md px-2 py-0.5 text-[10px] font-extrabold tracking-wider ${
-                      banner.active ? "bg-emerald-700 text-white" : "bg-neutral-800 text-white"
-                    }`}
+                    className={`absolute left-3 top-3 rounded-md px-2 py-0.5 text-[10px] font-extrabold tracking-wider ${banner.active ? "bg-emerald-700 text-white" : "bg-neutral-800 text-white"
+                      }`}
                   >
                     {banner.active ? "ACTIVE" : "INACTIVE"}
                   </span>

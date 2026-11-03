@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import {
   BookOpen,
   Plus,
@@ -15,15 +16,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Sparkles,
-  Heading,
-  Bold,
-  Italic,
-  List,
-  ListOrdered,
-  Quote,
-  Link2,
-  Image as ImageIcon,
-  Minus,
   RefreshCw,
   FileText,
   Tags,
@@ -32,6 +24,8 @@ import {
 import { blogService } from "../services/blogService";
 import { uploadService } from "../services/uploadService";
 import { resolveImageUrl } from "../utils/imageHelper";
+import RichTextEditor from "../components/common/RichTextEditor";
+import ArticleContentRenderer from "../components/common/ArticleContentRenderer";
 
 const INITIAL_ARTICLE_FORM = {
   title: "",
@@ -63,6 +57,8 @@ const generateSlug = (text) =>
     .replace(/^-+|-+$/g, "");
 
 export default function BlogPage() {
+  const location = useLocation();
+
   // Active Main Tab: "articles" | "categories"
   const [activeTab, setActiveTab] = useState("articles");
 
@@ -72,6 +68,14 @@ export default function BlogPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [successMessage, setSuccessMessage] = useState("");
+
+  useEffect(() => {
+    if (location.state?.notice) {
+      setSuccessMessage(location.state.notice);
+      window.history.replaceState({}, document.title);
+      setTimeout(() => setSuccessMessage(""), 4000);
+    }
+  }, [location.state]);
 
   // Filters & Pagination
   const [search, setSearch] = useState("");
@@ -90,7 +94,6 @@ export default function BlogPage() {
   const [autoArticleSlug, setAutoArticleSlug] = useState(true);
   const [contentTab, setContentTab] = useState("edit");
   const [uploadingCover, setUploadingCover] = useState(false);
-  const contentTextareaRef = useRef(null);
 
   // Article Delete Confirmation
   const [deletingArticle, setDeletingArticle] = useState(null);
@@ -243,25 +246,6 @@ export default function BlogPage() {
     } finally {
       setUploadingCover(false);
     }
-  };
-
-  const insertContentSnippet = (before, after = "") => {
-    const textarea = contentTextareaRef.current;
-    if (!textarea) return;
-
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-    const current = articleFormData.content || "";
-    const selected = current.substring(start, end);
-    const replacement = `${before}${selected || "text"}${after}`;
-    const nextContent = current.substring(0, start) + replacement + current.substring(end);
-
-    handleArticleInputChange("content", nextContent);
-
-    setTimeout(() => {
-      textarea.focus();
-      textarea.setSelectionRange(start + before.length, start + before.length + (selected ? selected.length : 4));
-    }, 50);
   };
 
   const validateArticleForm = () => {
@@ -815,24 +799,28 @@ export default function BlogPage() {
                       <tr key={art._id} className="hover:bg-neutral-50/60 transition group">
                         {/* Article Info */}
                         <td className="py-4 pl-6 pr-4 max-w-xs">
-                          <div className="flex items-center gap-3">
+                          <Link
+                            to={`/blog/${art._id}`}
+                            className="flex items-center gap-3 group/item"
+                            title="Open Article Detail & Customer Preview"
+                          >
                             <img
                               src={resolveImageUrl(art.coverImage)}
                               alt={art.title}
-                              className="h-11 w-11 shrink-0 rounded-xl object-cover border border-neutral-200 shadow-xs"
+                              className="h-11 w-11 shrink-0 rounded-xl object-cover border border-neutral-200 shadow-xs group-hover/item:border-[#5C0F17] transition"
                               onError={(e) => {
                                 e.target.src = "https://images.unsplash.com/photo-1609137144822-263e8a4a5e3f?w=100&q=80";
                               }}
                             />
                             <div className="truncate">
-                              <p className="font-bold text-neutral-900 group-hover:text-[#5C0F17] transition truncate">
+                              <p className="font-bold text-neutral-900 group-hover/item:text-[#5C0F17] transition truncate">
                                 {art.title}
                               </p>
                               <p className="text-[11px] font-mono text-neutral-400 truncate">
                                 /blog/{art.slug}
                               </p>
                             </div>
-                          </div>
+                          </Link>
                         </td>
 
                         {/* Category */}
@@ -882,12 +870,21 @@ export default function BlogPage() {
                         {/* Actions */}
                         <td className="py-4 pl-4 pr-6 text-right whitespace-nowrap">
                           <div className="inline-flex items-center gap-1">
+                            {/* Dedicated Admin Article Preview */}
+                            <Link
+                              to={`/blog/${art._id}`}
+                              title="Preview Article Details"
+                              className="flex h-8 w-8 items-center justify-center rounded-xl text-neutral-500 hover:bg-[#FAF5ED] hover:text-[#5C0F17] transition"
+                            >
+                              <Eye size={14} />
+                            </Link>
+
                             {art.status === "published" && (
                               <a
                                 href={`http://localhost:5173/blog/${art.slug}`}
                                 target="_blank"
                                 rel="noreferrer"
-                                title="View Live Article"
+                                title="Open Live Customer Page"
                                 className="flex h-8 w-8 items-center justify-center rounded-xl text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 transition"
                               >
                                 <ExternalLink size={14} />
@@ -1312,107 +1309,15 @@ export default function BlogPage() {
                 </div>
 
                 {contentTab === "edit" ? (
-                  <div className="rounded-2xl border border-neutral-200 overflow-hidden bg-neutral-50/30">
-                    {/* Content Snippet Toolbar */}
-                    <div className="flex flex-wrap items-center gap-1 border-b border-neutral-200 bg-neutral-100/70 p-1.5 text-neutral-600">
-                      <button
-                        type="button"
-                        onClick={() => insertContentSnippet("<h2>", "</h2>")}
-                        title="Heading 2"
-                        className="flex h-7 w-7 items-center justify-center rounded-lg hover:bg-white hover:text-neutral-900 transition"
-                      >
-                        <Heading size={14} />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => insertContentSnippet("<strong>", "</strong>")}
-                        title="Bold Text"
-                        className="flex h-7 w-7 items-center justify-center rounded-lg hover:bg-white hover:text-neutral-900 transition font-bold"
-                      >
-                        <Bold size={14} />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => insertContentSnippet("<em>", "</em>")}
-                        title="Italic Text"
-                        className="flex h-7 w-7 items-center justify-center rounded-lg hover:bg-white hover:text-neutral-900 transition italic"
-                      >
-                        <Italic size={14} />
-                      </button>
-                      <span className="h-4 w-px bg-neutral-300 mx-0.5" />
-                      <button
-                        type="button"
-                        onClick={() => insertContentSnippet("<ul>\n  <li>", "</li>\n</ul>")}
-                        title="Bullet List"
-                        className="flex h-7 w-7 items-center justify-center rounded-lg hover:bg-white hover:text-neutral-900 transition"
-                      >
-                        <List size={14} />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => insertContentSnippet("<ol>\n  <li>", "</li>\n</ol>")}
-                        title="Numbered List"
-                        className="flex h-7 w-7 items-center justify-center rounded-lg hover:bg-white hover:text-neutral-900 transition"
-                      >
-                        <ListOrdered size={14} />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => insertContentSnippet("<blockquote>\n  ", "\n</blockquote>")}
-                        title="Blockquote"
-                        className="flex h-7 w-7 items-center justify-center rounded-lg hover:bg-white hover:text-neutral-900 transition"
-                      >
-                        <Quote size={14} />
-                      </button>
-                      <span className="h-4 w-px bg-neutral-300 mx-0.5" />
-                      <button
-                        type="button"
-                        onClick={() => insertContentSnippet('<a href="https://example.com" target="_blank" rel="noopener">', "</a>")}
-                        title="Link"
-                        className="flex h-7 w-7 items-center justify-center rounded-lg hover:bg-white hover:text-neutral-900 transition"
-                      >
-                        <Link2 size={14} />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => insertContentSnippet('<img src="https://..." alt="', '" />')}
-                        title="Image Tag"
-                        className="flex h-7 w-7 items-center justify-center rounded-lg hover:bg-white hover:text-neutral-900 transition"
-                      >
-                        <ImageIcon size={14} />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => insertContentSnippet("<hr />\n")}
-                        title="Divider Line"
-                        className="flex h-7 w-7 items-center justify-center rounded-lg hover:bg-white hover:text-neutral-900 transition"
-                      >
-                        <Minus size={14} />
-                      </button>
-                    </div>
-
-                    <textarea
-                      ref={contentTextareaRef}
-                      rows={10}
-                      maxLength={20000}
-                      placeholder="Write rich, informative article content using paragraphs (<p>), subheadings (<h2>), and lists (<ul>)..."
-                      value={articleFormData.content}
-                      onChange={(e) => handleArticleInputChange("content", e.target.value)}
-                      className={`w-full p-4 text-xs font-mono transition bg-transparent outline-none resize-y ${
-                        articleFieldErrors.content ? "text-rose-900" : "text-neutral-900"
-                      }`}
-                    />
-                  </div>
+                  <RichTextEditor
+                    value={articleFormData.content}
+                    onChange={(html) => handleArticleInputChange("content", html)}
+                    placeholder="Start writing your article here..."
+                    minHeight="320px"
+                  />
                 ) : (
-                  <div className="rounded-2xl border border-neutral-200 p-5 bg-white min-h-[220px] max-h-[350px] overflow-y-auto prose prose-sm max-w-none">
-                    {articleFormData.content ? (
-                      <div
-                        dangerouslySetInnerHTML={{ __html: articleFormData.content }}
-                        className="text-xs text-neutral-800 space-y-3 leading-relaxed"
-                      />
-                    ) : (
-                      <p className="text-xs italic text-neutral-400">No content entered yet to preview.</p>
-                    )}
+                  <div className="rounded-2xl border border-neutral-200 p-6 bg-[#FFFDF9] min-h-[320px] max-h-[450px] overflow-y-auto">
+                    <ArticleContentRenderer html={articleFormData.content} />
                   </div>
                 )}
 

@@ -19,6 +19,7 @@ import CustomersPage from "./pages/CustomersPage";
 import CustomerDetailPage from "./pages/CustomerDetailPage";
 import CouponsPage from "./pages/CouponsPage";
 import BlogPage from "./pages/BlogPage";
+import BlogDetailPage from "./pages/BlogDetailPage";
 import TaxSettingsPage from "./pages/TaxSettingsPage";
 import AuditLogsPage from "./pages/AuditLogsPage";
 import ScrollToTop from "./components/common/ScrollToTop";
@@ -54,6 +55,7 @@ export default function App() {
             <Route path="view-user/:id" element={<CustomerDetailPage />} />
             <Route path="coupons" element={<CouponsPage />} />
             <Route path="blog" element={<BlogPage />} />
+            <Route path="blog/:id" element={<BlogDetailPage />} />
             <Route path="taxes" element={<TaxSettingsPage />} />
             <Route path="audit-logs" element={<AuditLogsPage />} />
           </Route>

@@ -18,6 +18,7 @@ import EarningsPage from "./pages/EarningsPage";
 import CustomersPage from "./pages/CustomersPage";
 import CustomerDetailPage from "./pages/CustomerDetailPage";
 import CouponsPage from "./pages/CouponsPage";
+import BlogPage from "./pages/BlogPage";
 import TaxSettingsPage from "./pages/TaxSettingsPage";
 import AuditLogsPage from "./pages/AuditLogsPage";
 import ScrollToTop from "./components/common/ScrollToTop";
@@ -52,6 +53,7 @@ export default function App() {
             <Route path="customers/:id" element={<CustomerDetailPage />} />
             <Route path="view-user/:id" element={<CustomerDetailPage />} />
             <Route path="coupons" element={<CouponsPage />} />
+            <Route path="blog" element={<BlogPage />} />
             <Route path="taxes" element={<TaxSettingsPage />} />
             <Route path="audit-logs" element={<AuditLogsPage />} />
           </Route>

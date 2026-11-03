@@ -41,8 +41,9 @@ export default function AdminLoginPage() {
     try {
       await login({ email: email.trim(), password });
 
-      const redirectPath = location.state?.from?.pathname || "/";
-      navigate(redirectPath, { replace: true });
+      const redirectPath = location.state?.from?.pathname;
+      const targetPath = !redirectPath || redirectPath === "/" ? "/dashboard" : redirectPath;
+      navigate(targetPath, { replace: true });
     } catch (error) {
       if (error.fieldErrors) setErrors(error.fieldErrors);
       setServerError(error.message || "Unable to sign in.");

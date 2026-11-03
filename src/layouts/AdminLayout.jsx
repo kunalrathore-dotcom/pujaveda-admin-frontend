@@ -21,7 +21,7 @@ import { useAdminAuth } from "../context/AdminAuthContext";
 import PujavedaLogo from "../components/common/PujavedaLogo";
 
 const links = [
-  { label: "Dashboard", to: "/", icon: LayoutDashboard, end: true },
+  { label: "Dashboard", to: "/dashboard", icon: LayoutDashboard, end: true },
   { label: "Products", to: "/products", icon: Package },
   { label: "Categories", to: "/categories", icon: Tags },
   { label: "Subcategories", to: "/subcategories", icon: ListTree },

@@ -38,7 +38,9 @@ export default function App() {
         {/* Protected Admin Dashboard & Management */}
         <Route element={<AdminProtectedRoute />}>
           <Route element={<AdminLayout />}>
-            <Route index element={<DashboardPage />} />
+            {/* Direct / access redirects to /dashboard */}
+            <Route index element={<Navigate to="/dashboard" replace />} />
+            <Route path="dashboard" element={<DashboardPage />} />
             <Route path="products" element={<ProductsPage />} />
             <Route path="categories" element={<CategoriesPage />} />
             <Route path="subcategories" element={<SubcategoriesPage />} />
@@ -62,7 +64,7 @@ export default function App() {
         </Route>
 
         {/* Redirect unknown routes */}
-        <Route path="*" element={<Navigate to="/" replace />} />
+        <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
     </BrowserRouter>
   );

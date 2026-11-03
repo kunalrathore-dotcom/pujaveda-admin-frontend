@@ -6,7 +6,6 @@ import {
   Eye,
   Pencil,
   Trash2,
-  RotateCcw,
   X,
   ListTree,
   RefreshCw,
@@ -39,7 +38,6 @@ export default function SubcategoriesPage() {
   const [categories, setCategories] = useState([]);
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
-  const [viewTab, setViewTab] = useState("active"); // "active" | "trash"
   const [selectedItems, setSelectedItems] = useState([]);
 
   const [modalOpen, setModalOpen] = useState(false);
@@ -96,7 +94,7 @@ export default function SubcategoriesPage() {
     const query = search.trim().toLowerCase();
 
     return subcategories.filter((subcategory) => {
-      const isTrashMatch = viewTab === "trash" ? subcategory.isDeleted === true : subcategory.isDeleted !== true;
+      if (subcategory.isDeleted === true) return false;
 
       const matchesSearch =
         subcategory.name.toLowerCase().includes(query) ||
@@ -106,9 +104,9 @@ export default function SubcategoriesPage() {
         categoryFilter === "all" ||
         subcategory.categoryId === categoryFilter;
 
-      return isTrashMatch && matchesSearch && matchesCategory;
+      return matchesSearch && matchesCategory;
     });
-  }, [subcategories, search, categoryFilter, viewTab]);
+  }, [subcategories, search, categoryFilter]);
 
   const openForm = (subcategory = null) => {
     setEditing(subcategory);
@@ -258,60 +256,7 @@ export default function SubcategoriesPage() {
   };
 
 
-  const restore = async (subcategory) => {
-    setActionId(null);
-    setError("");
-    setNotice("");
 
-    try {
-      const subId = subcategory._id || subcategory.id;
-      await categoryService.restoreSubcategory(
-        subcategory.categoryId,
-        subId,
-      );
-
-      setNotice("Subcategory restored successfully.");
-      await load();
-    } catch (err) {
-      setError(err.message || "Unable to restore subcategory.");
-    }
-  };
-
-  const handleBulkTrash = async (itemsToTrash) => {
-    if (!itemsToTrash || itemsToTrash.length === 0) return;
-    if (!window.confirm(`Move ${itemsToTrash.length} subcategory(ies) to trash? (You can restore them anytime from the Trash tab)`)) return;
-
-    try {
-      setLoading(true);
-      await categoryService.bulkTrashSubcategories(itemsToTrash);
-      setNotice(`${itemsToTrash.length} subcategory(ies) moved to trash successfully.`);
-      setSelectedItems([]);
-      setTimeout(() => setNotice(""), 3500);
-      await load();
-    } catch (err) {
-      setError(err.message || "Failed to move subcategories to trash.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleBulkRestore = async (itemsToRestore) => {
-    if (!itemsToRestore || itemsToRestore.length === 0) return;
-    if (!window.confirm(`Restore ${itemsToRestore.length} subcategory(ies) back to active catalog?`)) return;
-
-    try {
-      setLoading(true);
-      await categoryService.bulkRestoreSubcategories(itemsToRestore);
-      setNotice(`${itemsToRestore.length} subcategory(ies) restored successfully.`);
-      setSelectedItems([]);
-      setTimeout(() => setNotice(""), 3500);
-      await load();
-    } catch (err) {
-      setError(err.message || "Failed to restore subcategories.");
-    } finally {
-      setLoading(false);
-    }
-  };
 
   return (
     <div className="space-y-5 text-neutral-900">
@@ -355,31 +300,7 @@ export default function SubcategoriesPage() {
       )}
 
 
-      {/* Active vs Trash tabs */}
-      <div className="flex rounded-xl bg-[#FAF5ED] p-1 border border-[#EEDBC5] w-fit">
-        <button
-          type="button"
-          onClick={() => { setViewTab("active"); setSelectedItems([]); }}
-          className={`rounded-lg px-4 py-1.5 text-xs font-bold transition ${
-            viewTab === "active"
-              ? "bg-[#5C0F17] text-white shadow-xs"
-              : "text-[#2D1C13]/70 hover:text-[#5C0F17]"
-          }`}
-        >
-          Active Subcategories
-        </button>
-        <button
-          type="button"
-          onClick={() => { setViewTab("trash"); setSelectedItems([]); }}
-          className={`rounded-lg px-4 py-1.5 text-xs font-bold transition flex items-center gap-1.5 ${
-            viewTab === "trash"
-              ? "bg-red-700 text-white shadow-xs"
-              : "text-[#2D1C13]/70 hover:text-red-700"
-          }`}
-        >
-          <Trash2 size={13} /> Trash / Deleted Items
-        </button>
-      </div>
+
 
       {/* Search, category filter and add button */}
       <section className="overflow-visible rounded-xl border border-neutral-200 bg-white shadow-sm">

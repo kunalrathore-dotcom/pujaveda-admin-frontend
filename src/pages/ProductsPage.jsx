@@ -4,7 +4,6 @@ import {
   Search,
   Pencil,
   Trash2,
-  RotateCcw,
   Package,
   X,
   Upload,
@@ -64,7 +63,6 @@ export default function ProductsPage() {
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [viewTab, setViewTab] = useState("active"); // "active" | "trash"
   const [selectedIds, setSelectedIds] = useState([]);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -80,12 +78,11 @@ export default function ProductsPage() {
   const [couponSearch, setCouponSearch] = useState("");
   const fileInputRef = useRef(null);
 
-  const loadData = async (tab = viewTab) => {
+  const loadData = async () => {
     try {
       setLoading(true);
-      const isDeletedQuery = tab === "trash" ? "true" : "false";
       const [fetchedProducts, fetchedCategories, couponRes] = await Promise.all([
-        productService.getAll({ isPublished: "all", isDeleted: isDeletedQuery }),
+        productService.getAll({ isPublished: "all", isDeleted: "false" }),
         categoryService.getAll(),
         couponService.getCoupons({ limit: 100, isActive: "all" }),
       ]);
@@ -102,8 +99,8 @@ export default function ProductsPage() {
   };
 
   useEffect(() => {
-    loadData(viewTab);
-  }, [viewTab]);
+    loadData();
+  }, []);
 
   const selectedCategory = useMemo(() => {
     return categories.find(
@@ -399,63 +396,34 @@ export default function ProductsPage() {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm("Move this product to trash? (You can restore it anytime from the Trash tab)"))
+    if (!window.confirm("Are you sure you want to delete this product?"))
       return;
 
     try {
       await productService.remove(id);
-      setNotice("Product moved to trash successfully.");
+      setNotice("Product deleted successfully.");
       await loadData();
     } catch (error) {
       console.error("Delete error:", error);
-      setErrorMessage(error.message || "Failed to move product to trash.");
+      setErrorMessage(error.message || "Failed to delete product.");
     }
   };
 
-
-  const handleBulkTrash = async (idsToTrash) => {
-    if (!idsToTrash || idsToTrash.length === 0) return;
-    if (!window.confirm(`Move ${idsToTrash.length} product(s) to trash? (You can restore them anytime from the Trash tab)`)) return;
+  const handleBulkDelete = async (idsToDelete) => {
+    if (!idsToDelete || idsToDelete.length === 0) return;
+    if (!window.confirm(`Are you sure you want to delete ${idsToDelete.length} product(s)?`)) return;
 
     try {
       setLoading(true);
-      await productService.bulkTrash(idsToTrash);
-      setNotice(`${idsToTrash.length} product(s) moved to trash successfully.`);
+      await productService.bulkTrash(idsToDelete);
+      setNotice(`${idsToDelete.length} product(s) deleted successfully.`);
       setSelectedIds([]);
       await loadData();
     } catch (err) {
-      console.error("Bulk trash error:", err);
-      setErrorMessage(err.message || "Failed to move selected products to trash.");
+      console.error("Bulk delete error:", err);
+      setErrorMessage(err.message || "Failed to delete selected products.");
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleBulkRestore = async (idsToRestore) => {
-    if (!idsToRestore || idsToRestore.length === 0) return;
-    if (!window.confirm(`Restore ${idsToRestore.length} product(s) back to active catalog?`)) return;
-
-    try {
-      setLoading(true);
-      await productService.bulkRestore(idsToRestore);
-      setNotice(`${idsToRestore.length} product(s) restored successfully.`);
-      setSelectedIds([]);
-      await loadData();
-    } catch (err) {
-      console.error("Bulk restore error:", err);
-      setErrorMessage(err.message || "Failed to restore selected products.");
-    } finally {
-      setLoading(false);
-    }
-  };
-  const handleRestore = async (id) => {
-    try {
-      await productService.restore(id);
-      setNotice("Product restored successfully.");
-      await loadData();
-    } catch (error) {
-      console.error("Restore error:", error);
-      setErrorMessage(error.message || "Failed to restore product.");
     }
   };
 
@@ -494,32 +462,6 @@ export default function ProductsPage() {
 
       {/* Filter and Search Bar */}
       <div className="mt-6 flex flex-wrap items-center justify-between gap-4">
-        {/* Active vs Trash tabs */}
-        <div className="flex rounded-xl bg-[#FAF5ED] p-1 border border-[#EEDBC5]">
-          <button
-            type="button"
-            onClick={() => { setViewTab("active"); setSelectedIds([]); }}
-            className={`rounded-lg px-4 py-1.5 text-xs font-bold transition ${
-              viewTab === "active"
-                ? "bg-[#5C0F17] text-white shadow-xs"
-                : "text-[#2D1C13]/70 hover:text-[#5C0F17]"
-            }`}
-          >
-            Active Catalog
-          </button>
-          <button
-            type="button"
-            onClick={() => { setViewTab("trash"); setSelectedIds([]); }}
-            className={`rounded-lg px-4 py-1.5 text-xs font-bold transition flex items-center gap-1.5 ${
-              viewTab === "trash"
-                ? "bg-red-700 text-white shadow-xs"
-                : "text-[#2D1C13]/70 hover:text-red-700"
-            }`}
-          >
-            <Trash2 size={13} /> Trash / Deleted Items
-          </button>
-        </div>
-
         <div className="flex h-11 w-full max-w-sm items-center gap-2 rounded-xl border border-[#EEDBC5] bg-white px-3.5 focus-within:border-[#5C0F17] focus-within:ring-2 focus-within:ring-[#DA9B26]/20">
           <Search size={18} className="text-[#DA9B26]" />
           <input
@@ -581,45 +523,14 @@ export default function ProductsPage() {
         </div>
 
         <div className="flex items-center gap-2">
-          {viewTab === "active" ? (
-            <>
-              <button
-                type="button"
-                disabled={selectedIds.length === 0}
-                onClick={() => handleBulkTrash(selectedIds)}
-                className="rounded-lg bg-amber-50 px-3 py-1.5 text-xs font-bold text-amber-900 border border-amber-200 hover:bg-amber-100 disabled:opacity-40 transition flex items-center gap-1.5"
-              >
-                <Trash2 size={13} /> Move Selected to Trash
-              </button>
-              <button
-                type="button"
-                disabled={filteredProducts.length === 0}
-                onClick={() => handleBulkTrash(filteredProducts.map((p) => p._id || p.id))}
-                className="rounded-lg bg-rose-50 px-3 py-1.5 text-xs font-bold text-rose-800 border border-rose-200 hover:bg-rose-100 disabled:opacity-40 transition"
-              >
-                Move All to Trash
-              </button>
-            </>
-          ) : (
-            <>
-              <button
-                type="button"
-                disabled={selectedIds.length === 0}
-                onClick={() => handleBulkRestore(selectedIds)}
-                className="rounded-lg bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-800 border border-emerald-200 hover:bg-emerald-100 disabled:opacity-40 transition flex items-center gap-1.5"
-              >
-                <RotateCcw size={13} /> Restore Selected
-              </button>
-              <button
-                type="button"
-                disabled={filteredProducts.length === 0}
-                onClick={() => handleBulkRestore(filteredProducts.map((p) => p._id || p.id))}
-                className="rounded-lg bg-emerald-700 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-800 disabled:opacity-40 transition"
-              >
-                Restore All
-              </button>
-            </>
-          )}
+          <button
+            type="button"
+            disabled={selectedIds.length === 0}
+            onClick={() => handleBulkDelete(selectedIds)}
+            className="rounded-lg bg-rose-50 px-3 py-1.5 text-xs font-bold text-rose-800 border border-rose-200 hover:bg-rose-100 disabled:opacity-40 transition flex items-center gap-1.5"
+          >
+            <Trash2 size={13} /> Delete Selected
+          </button>
         </div>
       </div>
 
@@ -736,36 +647,23 @@ export default function ProductsPage() {
                       </td>
                       <td className="px-5 py-4 text-right">
                         <div className="flex items-center justify-end gap-1.5">
-                          {viewTab === "trash" ? (
-                            <button
-                              type="button"
-                              onClick={() => handleRestore(pid)}
-                              className="flex items-center gap-1 rounded-lg bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700 border border-emerald-200 hover:bg-emerald-100"
-                              title="Restore Product"
-                            >
-                              <RotateCcw size={14} /> Restore
-                            </button>
-                          ) : (
-                            <>
-                              <button
-                                type="button"
-                                onClick={() => openEditModal(p)}
-                                aria-label="Edit product"
-                                className="rounded-lg p-2 text-[#2D1C13]/70 hover:bg-[#FAF5ED] hover:text-[#5C0F17]"
-                              >
-                                <Pencil size={16} />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleDelete(pid)}
-                                aria-label="Move to trash"
-                                className="rounded-lg p-2 text-red-500 hover:bg-red-50 hover:text-red-700"
-                                title="Move to trash"
-                              >
-                                <Trash2 size={16} />
-                              </button>
-                            </>
-                          )}
+                          <button
+                            type="button"
+                            onClick={() => openEditModal(p)}
+                            aria-label="Edit product"
+                            className="rounded-lg p-2 text-[#2D1C13]/70 hover:bg-[#FAF5ED] hover:text-[#5C0F17]"
+                          >
+                            <Pencil size={16} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDelete(pid)}
+                            aria-label="Delete product"
+                            className="rounded-lg p-2 text-red-500 hover:bg-red-50 hover:text-red-700"
+                            title="Delete product"
+                          >
+                            <Trash2 size={16} />
+                          </button>
                         </div>
                       </td>
                     </tr>

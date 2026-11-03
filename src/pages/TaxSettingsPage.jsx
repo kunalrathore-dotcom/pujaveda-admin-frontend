@@ -5,7 +5,6 @@ import {
   Plus,
   Pencil,
   Trash2,
-  RotateCcw,
   X,
   CheckCircle2,
   AlertCircle,
@@ -31,7 +30,6 @@ export default function TaxSettingsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  const [viewTab, setViewTab] = useState("active"); // "active" | "trash"
   const [selectedIds, setSelectedIds] = useState([]);
 
   // Edit / Create Modal State
@@ -61,12 +59,11 @@ export default function TaxSettingsPage() {
     return [];
   };
 
-  const loadCharges = async (tab = viewTab) => {
+  const loadCharges = async () => {
     try {
       setLoading(true);
       setError("");
-      const isDeletedQuery = tab === "trash" ? "true" : "false";
-      const res = await pricingService.getAllCharges({ isDeleted: isDeletedQuery });
+      const res = await pricingService.getAllCharges({ isDeleted: "false" });
       if (res.success) {
         setCharges(parseCharges(res));
       } else {
@@ -83,8 +80,8 @@ export default function TaxSettingsPage() {
   };
 
   useEffect(() => {
-    loadCharges(viewTab);
-  }, [viewTab]);
+    loadCharges();
+  }, []);
 
   const openCreateModal = () => {
     setEditingCharge(null);
@@ -132,10 +129,10 @@ export default function TaxSettingsPage() {
 
   const handleDelete = async (charge) => {
     if (["gst", "platform_fee"].includes(charge.key)) {
-      alert("System charges like GST and Platform Fee cannot be moved to trash. You can deactivate them instead.");
+      alert("System charges like GST and Platform Fee cannot be deleted. You can deactivate them instead.");
       return;
     }
-    if (!window.confirm(`Move '${charge.name}' to trash? (You can restore it anytime from the Trash tab)`)) {
+    if (!window.confirm(`Are you sure you want to delete '${charge.name}'?`)) {
       return;
     }
 
@@ -143,71 +140,37 @@ export default function TaxSettingsPage() {
       setError("");
       const res = await pricingService.deleteCharge(charge._id);
       if (res.success) {
-        setNotice(`'${charge.name}' moved to trash.`);
+        setNotice(`'${charge.name}' deleted successfully.`);
         setTimeout(() => setNotice(""), 3500);
         loadCharges();
       }
     } catch (err) {
-      setError(err.message || "Failed to move charge to trash.");
+      setError(err.message || "Failed to delete charge.");
     }
   };
 
-  const handleRestore = async (charge) => {
-    try {
-      setError("");
-      const res = await pricingService.restoreCharge(charge._id);
-      if (res.success) {
-        setNotice(`'${charge.name}' restored successfully.`);
-        setTimeout(() => setNotice(""), 3500);
-        loadCharges();
-      }
-    } catch (err) {
-      setError(err.message || "Failed to restore charge.");
-    }
-  };
-
-
-  const handleBulkTrash = async (idsToTrash) => {
-    if (!idsToTrash || idsToTrash.length === 0) return;
-    const eligibleIds = idsToTrash.filter((id) => {
+  const handleBulkDelete = async (idsToDelete) => {
+    if (!idsToDelete || idsToDelete.length === 0) return;
+    const eligibleIds = idsToDelete.filter((id) => {
       const ch = charges.find((c) => (c._id || c.id) === id);
       return ch && !["gst", "platform_fee"].includes(ch.key);
     });
     if (eligibleIds.length === 0) {
-      alert("Standard system charges (GST & Platform Fee) cannot be moved to trash.");
+      alert("Standard system charges (GST & Platform Fee) cannot be deleted.");
       return;
     }
-    if (!window.confirm(`Move ${eligibleIds.length} surcharge(s) to trash? (You can restore them anytime from the Trash tab)`)) return;
+    if (!window.confirm(`Are you sure you want to delete ${eligibleIds.length} surcharge(s)?`)) return;
 
     try {
       setLoading(true);
       await pricingService.bulkTrash(eligibleIds);
-      setNotice(`${eligibleIds.length} surcharge(s) moved to trash successfully.`);
+      setNotice(`${eligibleIds.length} surcharge(s) deleted successfully.`);
       setSelectedIds([]);
       setTimeout(() => setNotice(""), 3500);
       await loadCharges();
     } catch (err) {
-      console.error("Bulk trash error:", err);
-      setError(err.message || "Failed to move selected surcharges to trash.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleBulkRestore = async (idsToRestore) => {
-    if (!idsToRestore || idsToRestore.length === 0) return;
-    if (!window.confirm(`Restore ${idsToRestore.length} surcharge(s) back to active pricing engine?`)) return;
-
-    try {
-      setLoading(true);
-      await pricingService.bulkRestore(idsToRestore);
-      setNotice(`${idsToRestore.length} surcharge(s) restored successfully.`);
-      setSelectedIds([]);
-      setTimeout(() => setNotice(""), 3500);
-      await loadCharges();
-    } catch (err) {
-      console.error("Bulk restore error:", err);
-      setError(err.message || "Failed to restore selected surcharges.");
+      console.error("Bulk delete error:", err);
+      setError(err.message || "Failed to delete selected surcharges.");
     } finally {
       setLoading(false);
     }
@@ -385,33 +348,7 @@ export default function TaxSettingsPage() {
                 </p>
               </div>
 
-              {/* Active vs Trash tabs */}
-              <div className="flex rounded-xl bg-[#FAF5ED] p-1 border border-[#EEDBC5]">
-                <button
-                  type="button"
-                  onClick={() => { setViewTab("active"); setSelectedIds([]); }}
-                  className={`rounded-lg px-3 py-1 text-xs font-bold transition ${
-                    viewTab === "active"
-                      ? "bg-[#5C0F17] text-white shadow-xs"
-                      : "text-[#2D1C13]/70 hover:text-[#5C0F17]"
-                  }`}
-                >
-                  Active Surcharges
-                </button>
-                <button
-                  type="button"
-                  onClick={() => { setViewTab("trash"); setSelectedIds([]); }}
-                  className={`rounded-lg px-3 py-1 text-xs font-bold transition flex items-center gap-1.5 ${
-                    viewTab === "trash"
-                      ? "bg-red-700 text-white shadow-xs"
-                      : "text-[#2D1C13]/70 hover:text-red-700"
-                  }`}
-                >
-                  <Trash2 size={12} /> Trash
-                </button>
-              </div>
             </div>
-
 
             {/* Bulk Action Controls */}
             {charges.length > 0 && (
@@ -444,53 +381,15 @@ export default function TaxSettingsPage() {
                 </div>
 
                 <div className="flex items-center gap-2">
-                  {viewTab === 'active' ? (
-                    <>
-                      <button
-                        type="button"
-                        disabled={selectedIds.length === 0}
-                        onClick={() => handleBulkTrash(selectedIds)}
-                        className="inline-flex items-center gap-1.5 rounded-lg bg-red-600 px-3 py-1.5 text-xs font-bold text-white shadow-xs transition hover:bg-red-700 disabled:cursor-not-allowed disabled:bg-neutral-300"
-                      >
-                        <Trash2 size={13} />
-                        Delete Selected
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          handleBulkTrash(
-                            charges
-                              .filter((c) => !['gst', 'platform_fee'].includes(c.key))
-                              .map((c) => c._id || c.id)
-                          )
-                        }
-                        className="inline-flex items-center gap-1.5 rounded-lg border border-red-300 bg-white px-3 py-1.5 text-xs font-bold text-red-700 shadow-xs transition hover:bg-red-50"
-                      >
-                        Delete All
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      <button
-                        type="button"
-                        disabled={selectedIds.length === 0}
-                        onClick={() => handleBulkRestore(selectedIds)}
-                        className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white shadow-xs transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-neutral-300"
-                      >
-                        <RotateCcw size={13} />
-                        Restore Selected
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          handleBulkRestore(charges.map((c) => c._id || c.id))
-                        }
-                        className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-white px-3 py-1.5 text-xs font-bold text-emerald-700 shadow-xs transition hover:bg-emerald-50"
-                      >
-                        Restore All
-                      </button>
-                    </>
-                  )}
+                  <button
+                    type="button"
+                    disabled={selectedIds.length === 0}
+                    onClick={() => handleBulkDelete(selectedIds)}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-red-600 px-3 py-1.5 text-xs font-bold text-white shadow-xs transition hover:bg-red-700 disabled:cursor-not-allowed disabled:bg-neutral-300"
+                  >
+                    <Trash2 size={13} />
+                    Delete Selected
+                  </button>
                 </div>
               </div>
             )}
@@ -591,49 +490,36 @@ export default function TaxSettingsPage() {
 
                       {/* Action buttons */}
                       <div className="mt-3 flex items-center gap-2 border-t border-neutral-200 pt-3 sm:mt-0 sm:border-t-0 sm:pt-0">
-                        {viewTab === "trash" ? (
+                        <button
+                          type="button"
+                          onClick={() => handleToggleStatus(charge)}
+                          title={charge.isActive ? "Deactivate charge" : "Activate charge"}
+                          className={`flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition ${
+                            charge.isActive
+                              ? "bg-neutral-200 text-neutral-700 hover:bg-neutral-300"
+                              : "bg-emerald-600 text-white hover:bg-emerald-700"
+                          }`}
+                        >
+                          <Power size={13} />
+                          {charge.isActive ? "Disable" : "Enable"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => openEditModal(charge)}
+                          className="flex items-center gap-1 rounded-lg border border-neutral-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-neutral-700 hover:bg-neutral-50"
+                        >
+                          <Pencil size={13} />
+                          Edit
+                        </button>
+                        {!isGst && !isPlatform && (
                           <button
                             type="button"
-                            onClick={() => handleRestore(charge)}
-                            className="flex items-center gap-1 rounded-lg bg-emerald-50 px-2.5 py-1.5 text-xs font-bold text-emerald-700 border border-emerald-200 hover:bg-emerald-100"
-                            title="Restore Surcharge"
+                            onClick={() => handleDelete(charge)}
+                            className="flex items-center gap-1 rounded-lg border border-neutral-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-rose-600 hover:bg-rose-50"
+                            title="Delete surcharge"
                           >
-                            <RotateCcw size={13} /> Restore
+                            <Trash2 size={13} />
                           </button>
-                        ) : (
-                          <>
-                            <button
-                              type="button"
-                              onClick={() => handleToggleStatus(charge)}
-                              title={charge.isActive ? "Deactivate charge" : "Activate charge"}
-                              className={`flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition ${
-                                charge.isActive
-                                  ? "bg-neutral-200 text-neutral-700 hover:bg-neutral-300"
-                                  : "bg-emerald-600 text-white hover:bg-emerald-700"
-                              }`}
-                            >
-                              <Power size={13} />
-                              {charge.isActive ? "Disable" : "Enable"}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => openEditModal(charge)}
-                              className="flex items-center gap-1 rounded-lg border border-neutral-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-neutral-700 hover:bg-neutral-50"
-                            >
-                              <Pencil size={13} />
-                              Edit
-                            </button>
-                            {!isGst && !isPlatform && (
-                              <button
-                                type="button"
-                                onClick={() => handleDelete(charge)}
-                                className="flex items-center gap-1 rounded-lg border border-neutral-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-rose-600 hover:bg-rose-50"
-                                title="Move to trash"
-                              >
-                                <Trash2 size={13} />
-                              </button>
-                            )}
-                          </>
                         )}
                       </div>
                     </div>

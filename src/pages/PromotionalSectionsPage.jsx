@@ -3,7 +3,6 @@ import {
   Plus,
   Pencil,
   Trash2,
-  RotateCcw,
   X,
   Image as ImageIcon,
   ToggleLeft,
@@ -49,15 +48,13 @@ export default function PromotionalSectionsPage() {
   const [notice, setNotice] = useState("");
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [viewTab, setViewTab] = useState("active"); // "active" | "trash"
   const [selectedIds, setSelectedIds] = useState([]);
   const [fieldErrors, setFieldErrors] = useState({});
   const fileInputRef = useRef(null);
 
-  const load = async (tab = viewTab) => {
+  const load = async () => {
     try {
-      const isDeletedQuery = tab === "trash" ? "true" : "false";
-      const data = await promotionalSectionService.getAll({ isDeleted: isDeletedQuery });
+      const data = await promotionalSectionService.getAll({ isDeleted: "false" });
       setCards(data);
     } catch (err) {
       setError(err.message || "Failed to load promotional sections.");
@@ -65,15 +62,15 @@ export default function PromotionalSectionsPage() {
   };
 
   useEffect(() => {
-    load(viewTab);
-  }, [viewTab]);
+    load();
+  }, []);
 
   const activeCount = cards.filter((c) => !c.isDeleted).length;
-  const isLimitReached = viewTab === "active" && activeCount >= 2;
+  const isLimitReached = activeCount >= 2;
 
   const openForm = (card = null) => {
     if (!card && isLimitReached) {
-      setError("Maximum 2 promotional assets allowed. Move an existing card to trash to add another.");
+      setError("Maximum 2 promotional assets allowed. Delete an existing card to add another.");
       return;
     }
     setEditingId(card?._id || card?.id || null);
@@ -194,63 +191,32 @@ export default function PromotionalSectionsPage() {
 
   const handleDelete = async (card) => {
     const id = card._id || card.id;
-    if (!window.confirm(`Move promotional section "${card.title}" to trash? (You can restore it anytime from the Trash tab)`)) return;
+    if (!window.confirm(`Are you sure you want to delete promotional section "${card.title}"?`)) return;
     try {
       await promotionalSectionService.delete(id);
       await load();
-      setNotice("Promotional card moved to trash.");
+      setNotice("Promotional card deleted successfully.");
     } catch (err) {
-      setError(err.message || "Failed to move card to trash.");
+      setError(err.message || "Failed to delete card.");
     }
   };
 
-
-  const handleBulkTrash = async (idsToTrash) => {
-    if (!idsToTrash || idsToTrash.length === 0) return;
-    if (!window.confirm(`Move ${idsToTrash.length} promotional card(s) to trash? (You can restore them anytime from the Trash tab)`)) return;
+  const handleBulkDelete = async (idsToDelete) => {
+    if (!idsToDelete || idsToDelete.length === 0) return;
+    if (!window.confirm(`Are you sure you want to delete ${idsToDelete.length} promotional card(s)?`)) return;
 
     try {
       setSaving(true);
-      await promotionalSectionService.bulkTrash(idsToTrash);
-      setNotice(`${idsToTrash.length} card(s) moved to trash successfully.`);
+      await promotionalSectionService.bulkTrash(idsToDelete);
+      setNotice(`${idsToDelete.length} card(s) deleted successfully.`);
       setSelectedIds([]);
       setTimeout(() => setNotice(""), 3500);
       await load();
     } catch (err) {
-      console.error("Bulk trash error:", err);
-      setError(err.message || "Failed to move selected cards to trash.");
+      console.error("Bulk delete error:", err);
+      setError(err.message || "Failed to delete selected cards.");
     } finally {
       setSaving(false);
-    }
-  };
-
-  const handleBulkRestore = async (idsToRestore) => {
-    if (!idsToRestore || idsToRestore.length === 0) return;
-    if (!window.confirm(`Restore ${idsToRestore.length} promotional card(s) back to active catalog?`)) return;
-
-    try {
-      setSaving(true);
-      await promotionalSectionService.bulkRestore(idsToRestore);
-      setNotice(`${idsToRestore.length} card(s) restored successfully.`);
-      setSelectedIds([]);
-      setTimeout(() => setNotice(""), 3500);
-      await load();
-    } catch (err) {
-      console.error("Bulk restore error:", err);
-      setError(err.message || "Failed to restore selected cards.");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleRestore = async (card) => {
-    const id = card._id || card.id;
-    try {
-      await promotionalSectionService.restore(id);
-      await load();
-      setNotice("Promotional card restored.");
-    } catch (err) {
-      setError(err.message || "Failed to restore card.");
     }
   };
 
@@ -288,34 +254,6 @@ export default function PromotionalSectionsPage() {
         </div>
       )}
 
-      {/* Active vs Trash tabs */}
-      <div className="flex rounded-xl bg-[#FAF5ED] p-1 border border-[#EEDBC5] w-fit">
-        <button
-          type="button"
-          onClick={() => { setViewTab("active"); setSelectedIds([]); }}
-          className={`rounded-lg px-4 py-1.5 text-xs font-bold transition ${
-            viewTab === "active"
-              ? "bg-[#5C0F17] text-white shadow-xs"
-              : "text-[#2D1C13]/70 hover:text-[#5C0F17]"
-          }`}
-        >
-          Active Sections
-        </button>
-        <button
-          type="button"
-          onClick={() => { setViewTab("trash"); setSelectedIds([]); }}
-          className={`rounded-lg px-4 py-1.5 text-xs font-bold transition flex items-center gap-1.5 ${
-            viewTab === "trash"
-              ? "bg-red-700 text-white shadow-xs"
-              : "text-[#2D1C13]/70 hover:text-red-700"
-          }`}
-        >
-          <Trash2 size={13} /> Trash / Deleted Items
-        </button>
-      </div>
-
-      {/* Cards Grid */}
-
       {/* Bulk Action Controls */}
       {cards.length > 0 && (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#EEDBC5] bg-[#FAF5ED] px-4 py-3">
@@ -341,45 +279,15 @@ export default function PromotionalSectionsPage() {
           </div>
 
           <div className="flex items-center gap-2">
-            {viewTab === 'active' ? (
-              <>
-                <button
-                  type="button"
-                  disabled={selectedIds.length === 0}
-                  onClick={() => handleBulkTrash(selectedIds)}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-red-600 px-3 py-1.5 text-xs font-bold text-white shadow-xs transition hover:bg-red-700 disabled:cursor-not-allowed disabled:bg-neutral-300"
-                >
-                  <Trash2 size={13} />
-                  Delete Selected
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleBulkTrash(cards.map((c) => c._id || c.id))}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-red-300 bg-white px-3 py-1.5 text-xs font-bold text-red-700 shadow-xs transition hover:bg-red-50"
-                >
-                  Delete All
-                </button>
-              </>
-            ) : (
-              <>
-                <button
-                  type="button"
-                  disabled={selectedIds.length === 0}
-                  onClick={() => handleBulkRestore(selectedIds)}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white shadow-xs transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-neutral-300"
-                >
-                  <RotateCcw size={13} />
-                  Restore Selected
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleBulkRestore(cards.map((c) => c._id || c.id))}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-white px-3 py-1.5 text-xs font-bold text-emerald-700 shadow-xs transition hover:bg-emerald-50"
-                >
-                  Restore All
-                </button>
-              </>
-            )}
+            <button
+              type="button"
+              disabled={selectedIds.length === 0}
+              onClick={() => handleBulkDelete(selectedIds)}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-red-600 px-3 py-1.5 text-xs font-bold text-white shadow-xs transition hover:bg-red-700 disabled:cursor-not-allowed disabled:bg-neutral-300"
+            >
+              <Trash2 size={13} />
+              Delete Selected
+            </button>
           </div>
         </div>
       )}
@@ -442,47 +350,34 @@ export default function PromotionalSectionsPage() {
                   </span>
 
                   <div className="flex items-center gap-1.5">
-                    {viewTab === "trash" ? (
-                      <button
-                        type="button"
-                        onClick={() => handleRestore(card)}
-                        className="flex items-center gap-1 rounded-lg bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700 border border-emerald-200 hover:bg-emerald-100"
-                        title="Restore Section"
-                      >
-                        <RotateCcw size={14} /> Restore
-                      </button>
-                    ) : (
-                      <>
-                        <button
-                          type="button"
-                          onClick={() => handleToggle(card)}
-                          title={card.isActive ? "Deactivate" : "Activate"}
-                          className="p-1.5 rounded-lg text-neutral-600 hover:bg-[#FAF5ED] transition"
-                        >
-                          {card.isActive ? (
-                            <ToggleRight size={20} className="text-emerald-600" />
-                          ) : (
-                            <ToggleLeft size={20} className="text-neutral-400" />
-                          )}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => openForm(card)}
-                          title="Edit"
-                          className="p-1.5 rounded-lg text-neutral-600 hover:bg-[#FAF5ED] hover:text-[#5C0F17] transition"
-                        >
-                          <Pencil size={16} />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDelete(card)}
-                          title="Move to trash"
-                          className="p-1.5 rounded-lg text-red-600 hover:bg-red-50 transition"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </>
-                    )}
+                    <button
+                      type="button"
+                      onClick={() => handleToggle(card)}
+                      title={card.isActive ? "Deactivate" : "Activate"}
+                      className="p-1.5 rounded-lg text-neutral-600 hover:bg-[#FAF5ED] transition"
+                    >
+                      {card.isActive ? (
+                        <ToggleRight size={20} className="text-emerald-600" />
+                      ) : (
+                        <ToggleLeft size={20} className="text-neutral-400" />
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => openForm(card)}
+                      title="Edit"
+                      className="p-1.5 rounded-lg text-neutral-600 hover:bg-[#FAF5ED] hover:text-[#5C0F17] transition"
+                    >
+                      <Pencil size={16} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(card)}
+                      title="Delete section"
+                      className="p-1.5 rounded-lg text-red-600 hover:bg-red-50 transition"
+                    >
+                      <Trash2 size={16} />
+                    </button>
                   </div>
                 </div>
               </div>

@@ -3,7 +3,6 @@ import {
   Plus,
   Pencil,
   Trash2,
-  RotateCcw,
   X,
   ChevronDown,
   ChevronRight,
@@ -49,13 +48,12 @@ export default function CategoriesPage() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [actionMenu, setActionMenu] = useState(null);
-  const [viewTab, setViewTab] = useState("active"); // "active" | "trash"
   const [selectedIds, setSelectedIds] = useState([]);
+  const [loading, setLoading] = useState(false);
 
-  const load = async (tab = viewTab) => {
+  const load = async () => {
     try {
-      const isDeletedQuery = tab === "trash" ? "true" : "false";
-      const data = await categoryService.getAll({ isDeleted: isDeletedQuery });
+      const data = await categoryService.getAll({ isDeleted: "false" });
       setCategories(data);
     } catch (err) {
       setError(err.message || "Failed to load categories.");
@@ -63,8 +61,8 @@ export default function CategoriesPage() {
   };
 
   useEffect(() => {
-    load(viewTab);
-  }, [viewTab]);
+    load();
+  }, []);
 
   const filteredCategories = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -250,100 +248,51 @@ export default function CategoriesPage() {
 
   const deleteCategory = async (category) => {
     setActionMenu(null);
-    if (!window.confirm(`Move category "${category.name}" to trash? (You can restore it anytime from the Trash tab)`)) return;
+    if (!window.confirm(`Are you sure you want to delete category "${category.name}"?`)) return;
 
     try {
       const catId = category._id || category.id;
       await categoryService.remove(catId);
-      setNotice("Category moved to trash successfully.");
+      setNotice("Category deleted successfully.");
       setError("");
       await load();
     } catch (err) {
       setNotice("");
-      setError(err.message || "Unable to move category to trash.");
-    }
-  };
-
-  const restoreCategory = async (category) => {
-    setActionMenu(null);
-    try {
-      const catId = category._id || category.id;
-      await categoryService.restore(catId);
-      setNotice("Category restored successfully.");
-      setError("");
-      await load();
-    } catch (err) {
-      setNotice("");
-      setError(err.message || "Unable to restore category.");
+      setError(err.message || "Unable to delete category.");
     }
   };
 
   const deleteSubcategory = async (category, subcategory) => {
     setActionMenu(null);
-    if (!window.confirm(`Move subcategory "${subcategory.name}" to trash?`)) return;
+    if (!window.confirm(`Are you sure you want to delete subcategory "${subcategory.name}"?`)) return;
 
     try {
       const catId = category._id || category.id;
       const subId = subcategory._id || subcategory.id;
       await categoryService.removeSubcategory(catId, subId);
-      setNotice("Subcategory moved to trash successfully.");
+      setNotice("Subcategory deleted successfully.");
       setError("");
       await load();
     } catch (err) {
       setNotice("");
-      setError(err.message || "Unable to move subcategory to trash.");
+      setError(err.message || "Unable to delete subcategory.");
     }
   };
 
-  const restoreSubcategory = async (category, subcategory) => {
-    setActionMenu(null);
-    try {
-      const catId = category._id || category.id;
-      const subId = subcategory._id || subcategory.id;
-      await categoryService.restoreSubcategory(catId, subId);
-      setNotice("Subcategory restored successfully.");
-      setError("");
-      await load();
-    } catch (err) {
-      setNotice("");
-      setError(err.message || "Unable to restore subcategory.");
-    }
-  };
-
-
-  const handleBulkTrash = async (idsToTrash) => {
-    if (!idsToTrash || idsToTrash.length === 0) return;
-    if (!window.confirm(`Move ${idsToTrash.length} category(ies) to trash? (You can restore them anytime from the Trash tab)`)) return;
+  const handleBulkDelete = async (idsToDelete) => {
+    if (!idsToDelete || idsToDelete.length === 0) return;
+    if (!window.confirm(`Are you sure you want to delete ${idsToDelete.length} category(ies)?`)) return;
 
     try {
       setLoading(true);
-      await categoryService.bulkTrash(idsToTrash);
-      setNotice(`${idsToTrash.length} category(ies) moved to trash successfully.`);
+      await categoryService.bulkTrash(idsToDelete);
+      setNotice(`${idsToDelete.length} category(ies) deleted successfully.`);
       setSelectedIds([]);
       setTimeout(() => setNotice(""), 3500);
       await load();
     } catch (err) {
-      console.error("Bulk trash error:", err);
-      setError(err.message || "Failed to move selected categories to trash.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleBulkRestore = async (idsToRestore) => {
-    if (!idsToRestore || idsToRestore.length === 0) return;
-    if (!window.confirm(`Restore ${idsToRestore.length} category(ies) back to active catalog?`)) return;
-
-    try {
-      setLoading(true);
-      await categoryService.bulkRestore(idsToRestore);
-      setNotice(`${idsToRestore.length} category(ies) restored successfully.`);
-      setSelectedIds([]);
-      setTimeout(() => setNotice(""), 3500);
-      await load();
-    } catch (err) {
-      console.error("Bulk restore error:", err);
-      setError(err.message || "Failed to restore selected categories.");
+      console.error("Bulk delete error:", err);
+      setError(err.message || "Failed to delete selected categories.");
     } finally {
       setLoading(false);
     }
@@ -432,32 +381,6 @@ export default function CategoriesPage() {
       {/* Categories table */}
       <section className="overflow-visible rounded-2xl border border-neutral-200 bg-white shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-neutral-100 p-4 sm:p-5">
-          {/* Active vs Trash tabs */}
-          <div className="flex rounded-xl bg-[#FAF5ED] p-1 border border-[#EEDBC5]">
-            <button
-              type="button"
-              onClick={() => { setViewTab("active"); setSelectedIds([]); }}
-              className={`rounded-lg px-4 py-1.5 text-xs font-bold transition ${
-                viewTab === "active"
-                  ? "bg-[#5C0F17] text-white shadow-xs"
-                  : "text-[#2D1C13]/70 hover:text-[#5C0F17]"
-              }`}
-            >
-              Active Categories
-            </button>
-            <button
-              type="button"
-              onClick={() => { setViewTab("trash"); setSelectedIds([]); }}
-              className={`rounded-lg px-4 py-1.5 text-xs font-bold transition flex items-center gap-1.5 ${
-                viewTab === "trash"
-                  ? "bg-red-700 text-white shadow-xs"
-                  : "text-[#2D1C13]/70 hover:text-red-700"
-              }`}
-            >
-              <Trash2 size={13} /> Trash / Deleted Items
-            </button>
-          </div>
-
           <div className="relative min-w-[220px] flex-1 sm:max-w-md">
             <Search
               size={17}
@@ -507,45 +430,15 @@ export default function CategoriesPage() {
             </div>
 
             <div className="flex items-center gap-2">
-              {viewTab === 'active' ? (
-                <>
-                  <button
-                    type="button"
-                    disabled={selectedIds.length === 0}
-                    onClick={() => handleBulkTrash(selectedIds)}
-                    className="inline-flex items-center gap-1.5 rounded-lg bg-red-600 px-3 py-1.5 text-xs font-bold text-white shadow-xs transition hover:bg-red-700 disabled:cursor-not-allowed disabled:bg-neutral-300"
-                  >
-                    <Trash2 size={13} />
-                    Delete Selected
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleBulkTrash(filteredCategories.map((c) => c._id || c.id))}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-red-300 bg-white px-3 py-1.5 text-xs font-bold text-red-700 shadow-xs transition hover:bg-red-50"
-                  >
-                    Delete All
-                  </button>
-                </>
-              ) : (
-                <>
-                  <button
-                    type="button"
-                    disabled={selectedIds.length === 0}
-                    onClick={() => handleBulkRestore(selectedIds)}
-                    className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white shadow-xs transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-neutral-300"
-                  >
-                    <RotateCcw size={13} />
-                    Restore Selected
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleBulkRestore(filteredCategories.map((c) => c._id || c.id))}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-white px-3 py-1.5 text-xs font-bold text-emerald-700 shadow-xs transition hover:bg-emerald-50"
-                  >
-                    Restore All
-                  </button>
-                </>
-              )}
+              <button
+                type="button"
+                disabled={selectedIds.length === 0}
+                onClick={() => handleBulkDelete(selectedIds)}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-red-600 px-3 py-1.5 text-xs font-bold text-white shadow-xs transition hover:bg-red-700 disabled:cursor-not-allowed disabled:bg-neutral-300"
+              >
+                <Trash2 size={13} />
+                Delete Selected
+              </button>
             </div>
           </div>
         )}
@@ -617,38 +510,27 @@ export default function CategoriesPage() {
 
                         {actionMenu === catId && (
                           <div className="absolute left-0 top-full z-30 mt-1 w-44 rounded-xl border border-neutral-200 bg-white p-1.5 shadow-xl">
-                            {viewTab === "trash" ? (
-                              <button
-                                onClick={() => restoreCategory(category)}
-                                className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-sm text-emerald-700 font-bold hover:bg-emerald-50"
-                              >
-                                <RotateCcw size={15} /> Restore Category
-                              </button>
-                            ) : (
-                              <>
-                                <button
-                                  onClick={() => {
-                                    setViewCategory(category);
-                                    setActionMenu(null);
-                                  }}
-                                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-sm hover:bg-neutral-50"
-                                >
-                                  <Eye size={15} /> View
-                                </button>
-                                <button
-                                  onClick={() => showCategoryModal(category)}
-                                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-sm hover:bg-neutral-50"
-                                >
-                                  <Pencil size={15} /> Edit
-                                </button>
-                                <button
-                                  onClick={() => deleteCategory(category)}
-                                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-sm text-red-600 hover:bg-red-50"
-                                >
-                                  <Trash2 size={15} /> Move to Trash
-                                </button>
-                              </>
-                            )}
+                            <button
+                              onClick={() => {
+                                setViewCategory(category);
+                                setActionMenu(null);
+                              }}
+                              className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-sm hover:bg-neutral-50"
+                            >
+                              <Eye size={15} /> View
+                            </button>
+                            <button
+                              onClick={() => showCategoryModal(category)}
+                              className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-sm hover:bg-neutral-50"
+                            >
+                              <Pencil size={15} /> Edit
+                            </button>
+                            <button
+                              onClick={() => deleteCategory(category)}
+                              className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-sm text-red-600 hover:bg-red-50"
+                            >
+                              <Trash2 size={15} /> Delete Category
+                            </button>
                           </div>
                         )}
                       </div>
@@ -793,35 +675,24 @@ export default function CategoriesPage() {
                           </p>
                         </div>
 
-                        {sub.isDeleted ? (
+                        <div className="flex items-center gap-1.5">
                           <button
-                            aria-label={`Restore ${sub.name}`}
-                            onClick={() => restoreSubcategory(category, sub)}
-                            className="flex items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-700 hover:bg-emerald-100"
-                            title="Restore Subcategory"
+                            aria-label={`Edit ${sub.name}`}
+                            onClick={() => showSubcategoryModal(category, sub)}
+                            className="rounded-lg border border-neutral-200 p-2 text-neutral-600 hover:bg-neutral-50"
                           >
-                            <RotateCcw size={13} /> Restore
+                            <Pencil size={15} />
                           </button>
-                        ) : (
-                          <>
-                            <button
-                              aria-label={`Edit ${sub.name}`}
-                              onClick={() => showSubcategoryModal(category, sub)}
-                              className="rounded-lg border border-neutral-200 p-2 text-neutral-600 hover:bg-neutral-50"
-                            >
-                              <Pencil size={15} />
-                            </button>
 
-                            <button
-                              aria-label={`Delete ${sub.name}`}
-                              onClick={() => deleteSubcategory(category, sub)}
-                              className="rounded-lg border border-neutral-200 p-2 text-red-600 hover:bg-red-50"
-                              title="Move to trash"
-                            >
-                              <Trash2 size={15} />
-                            </button>
-                          </>
-                        )}
+                          <button
+                            aria-label={`Delete ${sub.name}`}
+                            onClick={() => deleteSubcategory(category, sub)}
+                            className="rounded-lg border border-neutral-200 p-2 text-red-600 hover:bg-red-50"
+                            title="Delete subcategory"
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        </div>
                       </div>
                     );
                   })

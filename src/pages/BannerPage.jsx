@@ -3,7 +3,6 @@ import {
   Plus,
   Pencil,
   Trash2,
-  RotateCcw,
   X,
   Image as ImageIcon,
   ToggleLeft,
@@ -43,15 +42,13 @@ export default function BannersPage() {
   const [notice, setNotice] = useState("");
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [viewTab, setViewTab] = useState("active"); // "active" | "trash"
   const [selectedIds, setSelectedIds] = useState([]);
   const [fieldErrors, setFieldErrors] = useState({});
   const fileInputRef = useRef(null);
 
-  const load = async (tab = viewTab) => {
+  const load = async () => {
     try {
-      const isDeletedQuery = tab === "trash" ? "true" : "false";
-      const data = await bannerService.getAll({ isDeleted: isDeletedQuery });
+      const data = await bannerService.getAll({ isDeleted: "false" });
       setBanners(data);
     } catch (err) {
       setError(err.message || "Failed to load banners.");
@@ -59,8 +56,8 @@ export default function BannersPage() {
   };
 
   useEffect(() => {
-    load(viewTab);
-  }, [viewTab]);
+    load();
+  }, []);
 
   const openForm = (banner = null) => {
     setEditingId(banner?._id || banner?.id || null);
@@ -185,66 +182,33 @@ export default function BannersPage() {
   };
 
   const removeBanner = async (id) => {
-    if (!window.confirm("Move this banner to trash? (You can restore it anytime from the Trash tab)")) return;
+    if (!window.confirm("Are you sure you want to delete this banner?")) return;
     setError("");
     setNotice("");
 
     try {
       await bannerService.remove(id);
-      setNotice("Banner moved to trash successfully.");
+      setNotice("Banner deleted successfully.");
       await load();
     } catch (err) {
-      setError(err.message || "Unable to move banner to trash.");
+      setError(err.message || "Unable to delete banner.");
     }
   };
 
-  const restoreBanner = async (id) => {
-    setError("");
-    setNotice("");
-
-    try {
-      await bannerService.restore(id);
-      setNotice("Banner restored successfully.");
-      await load();
-    } catch (err) {
-      setError(err.message || "Unable to restore banner.");
-    }
-  };
-
-
-  const handleBulkTrash = async (idsToTrash) => {
-    if (!idsToTrash || idsToTrash.length === 0) return;
-    if (!window.confirm(`Move ${idsToTrash.length} banner(s) to trash? (You can restore them anytime from the Trash tab)`)) return;
+  const handleBulkDelete = async (idsToDelete) => {
+    if (!idsToDelete || idsToDelete.length === 0) return;
+    if (!window.confirm(`Are you sure you want to delete ${idsToDelete.length} banner(s)?`)) return;
 
     try {
       setSaving(true);
-      await bannerService.bulkTrash(idsToTrash);
-      setNotice(`${idsToTrash.length} banner(s) moved to trash successfully.`);
+      await bannerService.bulkTrash(idsToDelete);
+      setNotice(`${idsToDelete.length} banner(s) deleted successfully.`);
       setSelectedIds([]);
       setTimeout(() => setNotice(""), 3500);
       await load();
     } catch (err) {
-      console.error("Bulk trash error:", err);
-      setError(err.message || "Failed to move selected banners to trash.");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleBulkRestore = async (idsToRestore) => {
-    if (!idsToRestore || idsToRestore.length === 0) return;
-    if (!window.confirm(`Restore ${idsToRestore.length} banner(s) back to active catalog?`)) return;
-
-    try {
-      setSaving(true);
-      await bannerService.bulkRestore(idsToRestore);
-      setNotice(`${idsToRestore.length} banner(s) restored successfully.`);
-      setSelectedIds([]);
-      setTimeout(() => setNotice(""), 3500);
-      await load();
-    } catch (err) {
-      console.error("Bulk restore error:", err);
-      setError(err.message || "Failed to restore selected banners.");
+      console.error("Bulk delete error:", err);
+      setError(err.message || "Failed to delete selected banners.");
     } finally {
       setSaving(false);
     }
@@ -296,33 +260,6 @@ export default function BannersPage() {
         </div>
       )}
 
-      {/* Active vs Trash tabs */}
-      <div className="mt-6 flex rounded-xl bg-[#FAF5ED] p-1 border border-[#EEDBC5] w-fit">
-        <button
-          type="button"
-          onClick={() => { setViewTab("active"); setSelectedIds([]); }}
-          className={`rounded-lg px-4 py-1.5 text-xs font-bold transition ${
-            viewTab === "active"
-              ? "bg-[#5C0F17] text-white shadow-xs"
-              : "text-[#2D1C13]/70 hover:text-[#5C0F17]"
-          }`}
-        >
-          Active Banners
-        </button>
-        <button
-          type="button"
-          onClick={() => { setViewTab("trash"); setSelectedIds([]); }}
-          className={`rounded-lg px-4 py-1.5 text-xs font-bold transition flex items-center gap-1.5 ${
-            viewTab === "trash"
-              ? "bg-red-700 text-white shadow-xs"
-              : "text-[#2D1C13]/70 hover:text-red-700"
-          }`}
-        >
-          <Trash2 size={13} /> Trash / Deleted Items
-        </button>
-      </div>
-
-
       {/* Bulk Action Controls */}
       {banners.length > 0 && (
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#EEDBC5] bg-[#FAF5ED] px-4 py-3">
@@ -348,45 +285,15 @@ export default function BannersPage() {
           </div>
 
           <div className="flex items-center gap-2">
-            {viewTab === 'active' ? (
-              <>
-                <button
-                  type="button"
-                  disabled={selectedIds.length === 0}
-                  onClick={() => handleBulkTrash(selectedIds)}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-red-600 px-3 py-1.5 text-xs font-bold text-white shadow-xs transition hover:bg-red-700 disabled:cursor-not-allowed disabled:bg-neutral-300"
-                >
-                  <Trash2 size={13} />
-                  Delete Selected
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleBulkTrash(banners.map((b) => b._id || b.id))}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-red-300 bg-white px-3 py-1.5 text-xs font-bold text-red-700 shadow-xs transition hover:bg-red-50"
-                >
-                  Delete All
-                </button>
-              </>
-            ) : (
-              <>
-                <button
-                  type="button"
-                  disabled={selectedIds.length === 0}
-                  onClick={() => handleBulkRestore(selectedIds)}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white shadow-xs transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-neutral-300"
-                >
-                  <RotateCcw size={13} />
-                  Restore Selected
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleBulkRestore(banners.map((b) => b._id || b.id))}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-white px-3 py-1.5 text-xs font-bold text-emerald-700 shadow-xs transition hover:bg-emerald-50"
-                >
-                  Restore All
-                </button>
-              </>
-            )}
+            <button
+              type="button"
+              disabled={selectedIds.length === 0}
+              onClick={() => handleBulkDelete(selectedIds)}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-red-600 px-3 py-1.5 text-xs font-bold text-white shadow-xs transition hover:bg-red-700 disabled:cursor-not-allowed disabled:bg-neutral-300"
+            >
+              <Trash2 size={13} />
+              Delete Selected
+            </button>
           </div>
         </div>
       )}
@@ -454,36 +361,23 @@ export default function BannersPage() {
                 </button>
 
                 <div className="flex items-center gap-1.5">
-                  {viewTab === "trash" ? (
-                    <button
-                      type="button"
-                      onClick={() => restoreBanner(banner._id || banner.id)}
-                      className="flex items-center gap-1 rounded-lg bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700 border border-emerald-200 hover:bg-emerald-100"
-                      title="Restore Banner"
-                    >
-                      <RotateCcw size={14} /> Restore
-                    </button>
-                  ) : (
-                    <>
-                      <button
-                        type="button"
-                        onClick={() => openForm(banner)}
-                        aria-label="Edit banner"
-                        className="rounded-lg p-2 text-[#2D1C13]/70 hover:bg-[#FAF5ED] hover:text-[#5C0F17]"
-                      >
-                        <Pencil size={16} />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => removeBanner(banner._id || banner.id)}
-                        aria-label="Move to trash"
-                        className="rounded-lg p-2 text-red-500 hover:bg-red-50 hover:text-red-700"
-                        title="Move to trash"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </>
-                  )}
+                  <button
+                    type="button"
+                    onClick={() => openForm(banner)}
+                    aria-label="Edit banner"
+                    className="rounded-lg p-2 text-[#2D1C13]/70 hover:bg-[#FAF5ED] hover:text-[#5C0F17]"
+                  >
+                    <Pencil size={16} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => removeBanner(banner._id || banner.id)}
+                    aria-label="Delete banner"
+                    className="rounded-lg p-2 text-red-500 hover:bg-red-50 hover:text-red-700"
+                    title="Delete banner"
+                  >
+                    <Trash2 size={16} />
+                  </button>
                 </div>
               </div>
             </div>

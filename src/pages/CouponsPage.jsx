@@ -6,7 +6,6 @@ import {
   Search,
   Pencil,
   Trash2,
-  RotateCcw,
   X,
   CheckCircle2,
   AlertCircle,
@@ -33,8 +32,6 @@ export default function CouponsPage() {
   const [search, setSearch] = useState("");
   const [discountTypeFilter, setDiscountTypeFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [viewTab, setViewTab] = useState("active"); // "active" | "trash"
-  const [selectedIds, setSelectedIds] = useState([]);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
@@ -74,16 +71,15 @@ export default function CouponsPage() {
   const [usagePage, setUsagePage] = useState(1);
   const [usageTotalPages, setUsageTotalPages] = useState(1);
 
-  const loadCoupons = async (tab = viewTab) => {
+  const loadCoupons = async () => {
     try {
       setLoading(true);
       setError("");
-      const isDeletedQuery = tab === "trash" ? "true" : "false";
       const res = await couponService.getCoupons({
         search,
         discountType: discountTypeFilter,
         isActive: statusFilter,
-        isDeleted: isDeletedQuery,
+        isDeleted: "false",
         page,
         limit: 15,
       });
@@ -102,8 +98,8 @@ export default function CouponsPage() {
   };
 
   useEffect(() => {
-    loadCoupons(viewTab);
-  }, [discountTypeFilter, statusFilter, page, viewTab]);
+    loadCoupons();
+  }, [discountTypeFilter, statusFilter, page]);
 
   useEffect(() => {
     const loadProducts = async () => {
@@ -243,44 +239,6 @@ export default function CouponsPage() {
   };
 
 
-  const handleBulkTrash = async (idsToTrash) => {
-    if (!idsToTrash || idsToTrash.length === 0) return;
-    if (!window.confirm(`Move ${idsToTrash.length} coupon(s) to trash? (You can restore them anytime from the Trash tab)`)) return;
-
-    try {
-      setLoading(true);
-      await couponService.bulkTrash(idsToTrash);
-      setNotice(`${idsToTrash.length} coupon(s) moved to trash successfully.`);
-      setSelectedIds([]);
-      setTimeout(() => setNotice(""), 3500);
-      await loadCoupons();
-    } catch (err) {
-      console.error("Bulk trash error:", err);
-      setError(err.message || "Failed to move selected coupons to trash.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleBulkRestore = async (idsToRestore) => {
-    if (!idsToRestore || idsToRestore.length === 0) return;
-    if (!window.confirm(`Restore ${idsToRestore.length} coupon(s) back to active catalog?`)) return;
-
-    try {
-      setLoading(true);
-      await couponService.bulkRestore(idsToRestore);
-      setNotice(`${idsToRestore.length} coupon(s) restored successfully.`);
-      setSelectedIds([]);
-      setTimeout(() => setNotice(""), 3500);
-      await loadCoupons();
-    } catch (err) {
-      console.error("Bulk restore error:", err);
-      setError(err.message || "Failed to restore selected coupons.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleToggleStatus = async (coupon) => {
     try {
       await couponService.toggleStatus(coupon._id);
@@ -292,26 +250,16 @@ export default function CouponsPage() {
   };
 
   const handleDeleteCoupon = async (coupon) => {
-    if (!window.confirm(`Move coupon '${coupon.code}' to trash? (You can restore it anytime from the Trash tab)`)) {
+    if (!window.confirm(`Are you sure you want to delete coupon '${coupon.code}'?`)) {
       return;
     }
 
     try {
       const res = await couponService.deleteCoupon(coupon._id);
-      setNotice(typeof res === "string" ? res : `Coupon '${coupon.code}' moved to trash successfully.`);
+      setNotice(typeof res === "string" ? res : `Coupon '${coupon.code}' deleted successfully.`);
       await loadCoupons();
     } catch (err) {
-      alert("Failed to move coupon to trash: " + err.message);
-    }
-  };
-
-  const handleRestoreCoupon = async (coupon) => {
-    try {
-      await couponService.restoreCoupon(coupon._id);
-      setNotice(`Coupon '${coupon.code}' restored successfully.`);
-      await loadCoupons();
-    } catch (err) {
-      alert("Failed to restore coupon: " + err.message);
+      alert("Failed to delete coupon: " + err.message);
     }
   };
 
@@ -439,32 +387,6 @@ export default function CouponsPage() {
 
       {/* Search and Filters */}
       <div className="rounded-3xl border border-neutral-200/80 bg-white p-5 shadow-sm space-y-4">
-        {/* Active vs Trash tabs */}
-        <div className="flex rounded-xl bg-[#FAF5ED] p-1 border border-[#EEDBC5] w-fit">
-          <button
-            type="button"
-            onClick={() => { setViewTab("active"); setSelectedIds([]); }}
-            className={`rounded-lg px-4 py-1.5 text-xs font-bold transition ${
-              viewTab === "active"
-                ? "bg-[#5C0F17] text-white shadow-xs"
-                : "text-[#2D1C13]/70 hover:text-[#5C0F17]"
-            }`}
-          >
-            Active Coupons
-          </button>
-          <button
-            type="button"
-            onClick={() => { setViewTab("trash"); setSelectedIds([]); }}
-            className={`rounded-lg px-4 py-1.5 text-xs font-bold transition flex items-center gap-1.5 ${
-              viewTab === "trash"
-                ? "bg-red-700 text-white shadow-xs"
-                : "text-[#2D1C13]/70 hover:text-red-700"
-            }`}
-          >
-            <Trash2 size={13} /> Trash / Deleted Items
-          </button>
-        </div>
-
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <form onSubmit={handleSearchSubmit} className="relative">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-400" size={16} />
@@ -545,18 +467,6 @@ export default function CouponsPage() {
                   const cId = c._id || c.id;
                   return (
                     <tr key={cId} className="hover:bg-neutral-50/60 transition">
-                      <td className="px-4 py-3.5 text-center">
-                        <input
-                          type="checkbox"
-                          checked={selectedIds.includes(cId)}
-                          onChange={() => {
-                            setSelectedIds((prev) =>
-                              prev.includes(cId) ? prev.filter((id) => id !== cId) : [...prev, cId]
-                            );
-                          }}
-                          className="h-4 w-4 rounded accent-[#5C0F17]"
-                        />
-                      </td>
                       <td className="py-3.5 px-4">
                         <div className="flex items-center gap-2">
                           <span className="font-mono font-black text-neutral-900 bg-rose-50 text-[#5C0F17] px-2.5 py-1 rounded-lg border border-rose-100">
@@ -629,39 +539,27 @@ export default function CouponsPage() {
 
                       <td className="py-3.5 px-4 text-right">
                         <div className="flex items-center justify-end gap-1.5">
-                          {viewTab === "trash" ? (
-                            <button
-                              onClick={() => handleRestoreCoupon(c)}
-                              title="Restore Coupon"
-                              className="flex items-center gap-1 rounded-xl bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-700 border border-emerald-200 hover:bg-emerald-100"
-                            >
-                              <RotateCcw size={13} /> Restore
-                            </button>
-                          ) : (
-                            <>
-                              <button
-                                onClick={() => openUsagesModal(c)}
-                                title="View Redemptions"
-                                className="rounded-xl p-1.5 text-neutral-500 hover:bg-neutral-100 hover:text-neutral-800"
-                              >
-                                <Users size={15} />
-                              </button>
-                              <button
-                                onClick={() => openEditModal(c)}
-                                title="Edit Coupon"
-                                className="rounded-xl p-1.5 text-neutral-500 hover:bg-neutral-100 hover:text-neutral-800"
-                              >
-                                <Pencil size={15} />
-                              </button>
-                              <button
-                                onClick={() => handleDeleteCoupon(c)}
-                                title="Move to trash"
-                                className="rounded-xl p-1.5 text-red-500 hover:bg-red-50 hover:text-red-700"
-                              >
-                                <Trash2 size={15} />
-                              </button>
-                            </>
-                          )}
+                          <button
+                            onClick={() => openUsagesModal(c)}
+                            title="View Redemptions"
+                            className="rounded-xl p-1.5 text-neutral-500 hover:bg-neutral-100 hover:text-neutral-800"
+                          >
+                            <Users size={15} />
+                          </button>
+                          <button
+                            onClick={() => openEditModal(c)}
+                            title="Edit Coupon"
+                            className="rounded-xl p-1.5 text-neutral-500 hover:bg-neutral-100 hover:text-neutral-800"
+                          >
+                            <Pencil size={15} />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteCoupon(c)}
+                            title="Delete coupon"
+                            className="rounded-xl p-1.5 text-red-500 hover:bg-red-50 hover:text-red-700"
+                          >
+                            <Trash2 size={15} />
+                          </button>
                         </div>
                       </td>
                     </tr>

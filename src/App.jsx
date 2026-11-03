@@ -58,7 +58,9 @@ export default function App() {
             <Route path="coupons" element={<CouponsPage />} />
             <Route path="blog" element={<BlogPage />} />
             <Route path="blog/:id" element={<BlogDetailPage />} />
-            <Route path="taxes" element={<TaxSettingsPage />} />
+            <Route path="tax-fees" element={<TaxSettingsPage />} />
+            {/* Backward compatibility redirect for old taxes link */}
+            <Route path="taxes" element={<Navigate to="/tax-fees" replace />} />
             <Route path="audit-logs" element={<AuditLogsPage />} />
           </Route>
         </Route>

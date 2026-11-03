@@ -32,7 +32,7 @@ const links = [
   { label: "Customers", to: "/customers", icon: Users },
   { label: "Coupons", to: "/coupons", icon: TicketPercent },
   { label: "Blog", to: "/blog", icon: BookOpen },
-  { label: "Tax & Fees", to: "/taxes", icon: Receipt },
+  { label: "Tax & Fees", to: "/taxe-fees", icon: Receipt },
   { label: "Audit Logs", to: "/audit-logs", icon: Activity },
 ];
 

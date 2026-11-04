@@ -1,11 +1,11 @@
 // Centralized Admin API configuration
 // In production builds (or Vercel), uses the Render production backend URL.
-// In local development, falls back to localhost:5000 or the VITE_API_URL defined in .env.
+// In local development, falls back to localhost:5001 or the VITE_API_URL defined in .env.
 const API_URL = (
   import.meta.env.VITE_API_URL ||
   (import.meta.env.PROD
     ? "https://pujaveda-backend.onrender.com/api"
-    : "http://localhost:5000/api")
+    : "http://localhost:5001/api")
 ).replace(/\/+$/, "");
 
 const getHeaders = (isMultipart = false) => {

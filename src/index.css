@@ -44,6 +44,15 @@ a {
   text-decoration: none;
 }
 
+/* Hide scrollbar across browsers while preserving smooth scrolling */
+.scrollbar-none {
+  -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: none; /* Firefox */
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
+}
+
 /* Global Button Contrast: Any dark, maroon or brown background button/link must have readable white text & icons */
 button[class*="bg-[#5C0F17]"],
 button[class*="bg-[#4A0D15]"],

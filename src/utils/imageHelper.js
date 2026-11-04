@@ -11,15 +11,17 @@ export const resolveImageUrl = (url, fallback = "") => {
   if (trimmed.startsWith("https://") || trimmed.startsWith("http://")) {
     if (
       trimmed.includes("localhost:5000/uploads/") ||
+      trimmed.includes("localhost:5001/uploads/") ||
       trimmed.includes("localhost:10000/uploads/") ||
-      trimmed.includes("127.0.0.1:5000/uploads/")
+      trimmed.includes("127.0.0.1:5000/uploads/") ||
+      trimmed.includes("127.0.0.1:5001/uploads/")
     ) {
       const filename = trimmed.split("/uploads/")[1]?.split("?")[0];
       const backendBase = (
         import.meta.env.VITE_API_URL ||
         (import.meta.env.PROD
           ? "https://pujaveda-backend.onrender.com/api"
-          : "http://localhost:5000/api")
+          : "http://localhost:5001/api")
       ).replace(/\/api\/?$/, "");
       return `${backendBase}/uploads/${filename}`;
     }
@@ -33,7 +35,7 @@ export const resolveImageUrl = (url, fallback = "") => {
       import.meta.env.VITE_API_URL ||
       (import.meta.env.PROD
         ? "https://pujaveda-backend.onrender.com/api"
-        : "http://localhost:5000/api")
+        : "http://localhost:5001/api")
     ).replace(/\/api\/?$/, "");
     return `${backendBase}${cleanPath}`;
   }

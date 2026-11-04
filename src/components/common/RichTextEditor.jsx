@@ -330,18 +330,8 @@ export default function RichTextEditor({
         onInput={handleInput}
         style={{ minHeight }}
         data-placeholder={placeholder}
-        className="p-5 text-sm outline-none overflow-y-auto leading-relaxed text-[#2D1C13] bg-white
-          empty:before:content-[attr(data-placeholder)] empty:before:text-neutral-400 empty:before:pointer-events-none
-          [&>h1]:text-2xl [&>h1]:sm:text-3xl [&>h1]:font-black [&>h1]:text-[#5C0F17] [&>h1]:mt-6 [&>h1]:mb-3 [&>h1]:font-serif
-          [&>h2]:text-xl [&>h2]:sm:text-2xl [&>h2]:font-black [&>h2]:text-[#5C0F17] [&>h2]:mt-6 [&>h2]:mb-2 [&>h2]:font-serif
-          [&>h3]:text-lg [&>h3]:sm:text-xl [&>h3]:font-bold [&>h3]:text-[#2D1C13] [&>h3]:mt-5 [&>h3]:mb-2
-          [&>p]:my-3 [&>p]:leading-7 [&>p]:text-neutral-700
-          [&>ul]:list-disc [&>ul]:pl-6 [&>ul]:my-3 [&>ul]:space-y-1.5 [&>ul]:text-neutral-700
-          [&>ol]:list-decimal [&>ol]:pl-6 [&>ol]:my-3 [&>ol]:space-y-1.5 [&>ol]:text-neutral-700
-          [&>blockquote]:border-l-4 [&>blockquote]:border-[#DA9B26] [&>blockquote]:bg-[#FAF5ED] [&>blockquote]:p-4 [&>blockquote]:my-4 [&>blockquote]:rounded-r-2xl [&>blockquote]:italic [&>blockquote]:text-neutral-800
-          [&>img]:rounded-2xl [&>img]:shadow-sm [&>img]:my-4 [&>img]:max-w-full
-          [&>hr]:border-neutral-200 [&>hr]:my-4
-          [&>a]:text-[#5C0F17] [&>a]:underline [&>a]:font-bold"
+        className="legal-document-body p-5 text-sm outline-none overflow-y-auto leading-relaxed text-[#2D1C13] bg-white
+          empty:before:content-[attr(data-placeholder)] empty:before:text-neutral-400 empty:before:pointer-events-none"
       />
 
       {/* 3. Bottom Stats Bar */}

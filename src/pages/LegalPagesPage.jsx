@@ -315,7 +315,7 @@ export default function LegalPagesPage() {
                 </div>
 
                 <div
-                  className="prose prose-sm max-w-none text-neutral-700 leading-relaxed space-y-4"
+                  className="legal-document-body max-w-none text-[#3D2619] leading-relaxed"
                   dangerouslySetInnerHTML={{ __html: content || "<p><i>No content written yet.</i></p>" }}
                 />
               </div>
